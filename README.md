@@ -1,4 +1,6 @@
-# Famous Introvert Listening Rooms — MVP starter
+# listening-party
+
+Famous Introvert Listening Rooms — MVP starter
 
 A private, invitation-only listening-party web app starter for Famous Introvert Records.
 
