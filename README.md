@@ -46,6 +46,8 @@ npm run dev
 - `ADMIN_PASSWORD`: strong, unique developer admin password, stored server-side; never use a `NEXT_PUBLIC_` prefix
 - `ADMIN_GOOGLE_EMAILS`: optional comma-separated exact developer Google email allowlist for `/admin`; keep this separate from artist and host accounts
 
+When deployed through the Vercel Supabase integration, the project also accepts its `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SECRET_KEY` variables. The server secret is only used server-side; the URL and anon key are mapped for the browser client.
+
 ## 3. Host profile and room setup
 Set a new, unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env.local` and in the Vercel environment. Do not reuse credentials shared in chat or used elsewhere. Alternatively, configure Google OAuth and set `ADMIN_GOOGLE_EMAILS` to the exact developer accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, allow `http://localhost:3001/signup/callback`, `http://localhost:3001/host/callback`, `http://localhost:3001/admin/callback`, and corresponding deployed URLs. The admin console uses a separate two-hour HTTP-only session. Apply rate limiting to `/api/admin/session` before public production use.
 
