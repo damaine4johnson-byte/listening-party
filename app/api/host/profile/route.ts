@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HOST_SESSION_COOKIE, readHostSession } from "../../../../lib/host-session";
+import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
+import { readActiveHostSession } from "../../../../lib/host-profile";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { isArtistTier } from "../../../../lib/artist-tiers";
 
-function getSession(request: NextRequest) {
-  return readHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+async function getSession(request: NextRequest) {
+  return readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
 }
 
 function hasSameOrigin(request: NextRequest) {
@@ -12,7 +13,7 @@ function hasSameOrigin(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = getSession(request);
+  const session = await getSession(request);
   if (!session) return NextResponse.json({ error: "Host sign-in required." }, { status: 401 });
 
   try {
@@ -50,7 +51,7 @@ export async function PUT(request: NextRequest) {
   if (!hasSameOrigin(request)) {
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
   }
-  const session = getSession(request);
+  const session = await getSession(request);
   if (!session) return NextResponse.json({ error: "Host sign-in required." }, { status: 401 });
 
   let input: unknown;

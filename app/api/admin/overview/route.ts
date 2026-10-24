@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      email: session.email,
+      identity: session.identity,
       artists: artists.count ?? 0,
       rooms: rooms.count ?? 0,
       liveRooms: liveRooms.count ?? 0,

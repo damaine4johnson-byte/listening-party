@@ -2,13 +2,14 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import HostProfileForm from "./host-profile-form";
-import { HOST_SESSION_COOKIE, readHostSession } from "../../../lib/host-session";
+import { HOST_SESSION_COOKIE } from "../../../lib/host-session";
+import { readActiveHostSession } from "../../../lib/host-profile";
 
 export const dynamic = "force-dynamic";
 
 export default async function HostProfilePage() {
   const cookieStore = await cookies();
-  const session = readHostSession(cookieStore.get(HOST_SESSION_COOKIE)?.value);
+  const session = await readActiveHostSession(cookieStore.get(HOST_SESSION_COOKIE)?.value);
   if (!session) redirect("/host");
 
   return (

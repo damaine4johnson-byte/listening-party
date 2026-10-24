@@ -4,6 +4,7 @@ import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_MAX_AGE,
   createAdminSessionToken,
+  matchesAdminCredential,
   readAdminSession,
 } from "../../../../lib/admin-session";
 
@@ -11,14 +12,55 @@ function hasSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
 }
 
+function createSessionResponse(identity: string) {
+  const response = NextResponse.json({ authenticated: true });
+  response.cookies.set(ADMIN_SESSION_COOKIE, createAdminSessionToken(identity), {
+    httpOnly: true,
+    maxAge: ADMIN_SESSION_MAX_AGE,
+    path: "/",
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  });
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const session = readAdminSession(request.cookies.get(ADMIN_SESSION_COOKIE)?.value);
-  return NextResponse.json({ authenticated: Boolean(session), email: session?.email ?? null });
+  return NextResponse.json({ authenticated: Boolean(session), identity: session?.identity ?? null });
 }
 
 export async function POST(request: NextRequest) {
   if (!hasSameOrigin(request)) {
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
+  }
+
+  let input: unknown;
+  try {
+    input = await request.json() as unknown;
+  } catch {
+    return NextResponse.json({ error: "Enter admin credentials or sign in with Google." }, { status: 400 });
+  }
+  const values = input && typeof input === "object"
+    ? input as { accessToken?: unknown; username?: unknown; password?: unknown }
+    : {};
+
+  if (typeof values.username === "string" || typeof values.password === "string") {
+    const configuredUsername = process.env.ADMIN_USERNAME;
+    const configuredPassword = process.env.ADMIN_PASSWORD;
+    if (!configuredUsername || !configuredPassword) {
+      return NextResponse.json({ error: "Admin username/password sign-in is not configured." }, { status: 503 });
+    }
+    if (
+      typeof values.username !== "string" ||
+      typeof values.password !== "string" ||
+      values.username.length > 256 ||
+      values.password.length > 512 ||
+      !matchesAdminCredential(values.username, configuredUsername) ||
+      !matchesAdminCredential(values.password, configuredPassword)
+    ) {
+      return NextResponse.json({ error: "Incorrect admin username or password." }, { status: 401 });
+    }
+    return createSessionResponse(configuredUsername);
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,18 +70,10 @@ export async function POST(request: NextRequest) {
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
   if (!url || !anonKey || allowedEmails.length === 0) {
-    return NextResponse.json({ error: "Developer admin access is not configured." }, { status: 503 });
+    return NextResponse.json({ error: "Developer Google sign-in is not configured." }, { status: 503 });
   }
 
-  let input: unknown;
-  try {
-    input = await request.json() as unknown;
-  } catch {
-    return NextResponse.json({ error: "Google identity could not be verified." }, { status: 400 });
-  }
-  const accessToken = input && typeof input === "object"
-    ? (input as { accessToken?: unknown }).accessToken
-    : null;
+  const accessToken = values.accessToken;
   if (typeof accessToken !== "string" || accessToken.length > 8192) {
     return NextResponse.json({ error: "Google identity could not be verified." }, { status: 400 });
   }
@@ -57,16 +91,7 @@ export async function POST(request: NextRequest) {
     if (!allowedEmails.includes(email)) {
       return NextResponse.json({ error: "This account is not on the developer allowlist." }, { status: 403 });
     }
-
-    const response = NextResponse.json({ authenticated: true });
-    response.cookies.set(ADMIN_SESSION_COOKIE, createAdminSessionToken(email), {
-      httpOnly: true,
-      maxAge: ADMIN_SESSION_MAX_AGE,
-      path: "/",
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-    });
-    return response;
+    return createSessionResponse(email);
   } catch {
     return NextResponse.json({ error: "Admin sign-in is temporarily unavailable." }, { status: 503 });
   }

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import RoomTrackManager from "./room-track-manager";
 
 type Room = {
   id: string;
@@ -137,6 +138,7 @@ export default function HostDashboard() {
               <article key={room.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
                 <strong>{room.title}</strong>
                 <div className="small">{room.slug} · {room.status} · up to {room.max_listeners.toLocaleString()} listeners</div>
+                <RoomTrackManager roomId={room.id} />
               </article>
             ))}
           </div>

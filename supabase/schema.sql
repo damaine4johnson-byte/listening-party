@@ -5,9 +5,22 @@ create table if not exists public.host_accounts (
   host_id text primary key check (host_id ~ '^[a-f0-9]{64}$'),
   auth_provider text not null check (auth_provider in ('password','google')),
   account_identity text not null,
+  account_status text not null default 'active' check (account_status in ('active', 'suspended')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists public.platform_settings (
+  setting_key text primary key check (setting_key = 'global'),
+  free_tier_ads_enabled boolean not null default true,
+  free_tier_ad_title text not null default 'Host your own first listen',
+  free_tier_ad_body text not null default 'Create an artist profile and bring your listeners together in a private room.',
+  free_tier_ad_href text not null default '/signup',
+  new_room_status text not null default 'scheduled' check (new_room_status in ('scheduled', 'live')),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.platform_settings (setting_key) values ('global') on conflict (setting_key) do nothing;
 
 create table if not exists public.host_profiles (
   host_id text primary key references public.host_accounts(host_id) on delete cascade,
@@ -68,6 +81,20 @@ create table if not exists public.room_memberships (
   primary key (room_id, member_id)
 );
 
+create table if not exists public.room_reactions (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  member_id uuid not null,
+  display_name text not null check (char_length(display_name) between 1 and 32),
+  reaction text not null check (reaction in ('heart', 'fire', 'clap', 'laugh', 'wow')),
+  created_at timestamptz not null default now(),
+  foreign key (room_id, member_id)
+    references public.room_memberships(room_id, member_id) on delete cascade
+);
+
+create index if not exists room_reactions_room_created_idx
+  on public.room_reactions (room_id, created_at desc);
+
 create or replace function public.join_room_with_limit(
   p_room_id uuid,
   p_member_id uuid,
@@ -127,6 +154,8 @@ alter table public.room_chat enable row level security;
 alter table public.host_accounts enable row level security;
 alter table public.host_profiles enable row level security;
 alter table public.room_memberships enable row level security;
+alter table public.room_reactions enable row level security;
+alter table public.platform_settings enable row level security;
 
 revoke all on public.rooms from anon, authenticated;
 revoke all on public.room_tracks from anon, authenticated;
@@ -135,6 +164,8 @@ revoke all on public.room_chat from anon, authenticated;
 revoke all on public.host_accounts from anon, authenticated;
 revoke all on public.host_profiles from anon, authenticated;
 revoke all on public.room_memberships from anon, authenticated;
+revoke all on public.room_reactions from anon, authenticated;
+revoke all on public.platform_settings from anon, authenticated;
 
 -- Enable Realtime for these tables in Supabase Dashboard after authorization
 -- has been implemented. Never expose the service-role key to the browser.

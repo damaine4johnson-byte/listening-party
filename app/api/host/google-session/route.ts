@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const hostId = hostProfileId("google", email);
     const { data: existingAccount, error: accountError } = await createSupabaseAdmin()
       .from("host_accounts")
-      .select("host_id")
+      .select("host_id, account_status")
       .eq("host_id", hostId)
       .maybeSingle();
     if (accountError) {
@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sign up as an artist before signing in." }, { status: 403 });
     }
 
-    await persistHostIdentity(hostId, "google", email);
+    const accountStatus = await persistHostIdentity(hostId, "google", email);
+    if (accountStatus !== "active") {
+      return NextResponse.json({ error: "This host account is suspended." }, { status: 403 });
+    }
 
     const response = NextResponse.json({ authenticated: true });
     response.cookies.set(HOST_SESSION_COOKIE, createHostSessionToken(hostId), {

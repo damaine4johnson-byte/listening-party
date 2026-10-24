@@ -1,16 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { HOST_SESSION_COOKIE, readHostSession } from "../../../../lib/host-session";
+import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { readActiveHostSession } from "../../../../lib/host-profile";
 import { artistTierDetails, effectiveArtistTier, isArtistTier } from "../../../../lib/artist-tiers";
+import { getPlatformSettings } from "../../../../lib/platform-settings";
 
 function hasSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
 }
 
 export async function GET(request: NextRequest) {
-  const session = readHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+  const session = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
   if (!session) {
     return NextResponse.json({ error: "Host sign-in required." }, { status: 401 });
   }
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!hasSameOrigin(request)) {
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
   }
-  const session = readHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+  const session = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
   if (!session) {
     return NextResponse.json({ error: "Host sign-in required." }, { status: 401 });
   }
@@ -61,13 +63,21 @@ export async function POST(request: NextRequest) {
     const requestedTier = isArtistTier(profile?.plan_tier) ? profile.plan_tier : "free";
     const effectiveTier = effectiveArtistTier(requestedTier, profile?.subscription_status ?? "active");
     const maxListeners = artistTierDetails(effectiveTier).maxListeners;
+    const platformSettings = await getPlatformSettings();
     const inviteCode = randomBytes(24).toString("base64url");
     const inviteCodeHash = createHash("sha256").update(inviteCode).digest("hex");
     const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "room";
     const slug = `${titleSlug}-${randomBytes(4).toString("hex")}`;
     const { data: room, error } = await supabase
       .from("rooms")
-      .insert({ title, slug, invite_code_hash: inviteCodeHash, host_id: session.hostId, max_listeners: maxListeners })
+      .insert({
+        title,
+        slug,
+        invite_code_hash: inviteCodeHash,
+        host_id: session.hostId,
+        max_listeners: maxListeners,
+        status: platformSettings.new_room_status,
+      })
       .select("id, title, slug, status, created_at")
       .single();
 

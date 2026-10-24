@@ -2,13 +2,14 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import HostDashboard from "./host-dashboard";
 import HostLogin from "./host-login";
-import { HOST_SESSION_COOKIE, isValidHostSession } from "../../lib/host-session";
+import { HOST_SESSION_COOKIE } from "../../lib/host-session";
+import { readActiveHostSession } from "../../lib/host-profile";
 
 export const dynamic = "force-dynamic";
 
 export default async function HostPage() {
   const cookieStore = await cookies();
-  const isHost = isValidHostSession(cookieStore.get(HOST_SESSION_COOKIE)?.value);
+  const isHost = Boolean(await readActiveHostSession(cookieStore.get(HOST_SESSION_COOKIE)?.value));
 
   return (
     <main className="wrap">

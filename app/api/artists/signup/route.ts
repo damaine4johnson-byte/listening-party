@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
     }
 
     const hostId = hostProfileId("google", email);
-    await persistHostIdentity(hostId, "google", email);
+    const accountStatus = await persistHostIdentity(hostId, "google", email);
+    if (accountStatus !== "active") {
+      return NextResponse.json({ error: "This artist account is suspended." }, { status: 403 });
+    }
     const { error: profileError } = await supabaseAdminProfile(hostId, values.planTier);
     if (profileError) {
       return NextResponse.json({ error: "Artist profile storage is not configured." }, { status: 503 });

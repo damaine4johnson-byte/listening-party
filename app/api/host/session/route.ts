@@ -8,13 +8,14 @@ import {
   hostProfileId,
 } from "../../../../lib/host-session";
 import { persistHostIdentity } from "../../../../lib/host-profile";
+import { readActiveHostSession } from "../../../../lib/host-profile";
 
 function hasSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
 }
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ authenticated: isValidHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value) });
+  return NextResponse.json({ authenticated: Boolean(await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value)) });
 }
 
 export async function POST(request: NextRequest) {
@@ -52,7 +53,10 @@ export async function POST(request: NextRequest) {
 
   const hostId = hostProfileId("password", configuredUsername);
   try {
-    await persistHostIdentity(hostId, "password", configuredUsername);
+    const accountStatus = await persistHostIdentity(hostId, "password", configuredUsername);
+    if (accountStatus !== "active") {
+      return NextResponse.json({ error: "This host account is suspended." }, { status: 403 });
+    }
   } catch {
     return NextResponse.json({ error: "Host profile storage is not configured." }, { status: 503 });
   }
