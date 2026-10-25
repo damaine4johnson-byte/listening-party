@@ -39,12 +39,13 @@ npm run dev
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
 - `APP_SUPABASE_URL`: optional server-side URL override when the Vercel Supabase integration points to a different project; also mapped to the browser URL at build time
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase publishable/anon key
-- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`): required server-only secret for room API routes; never expose it in browser code
+- `APP_SUPABASE_SECRET_KEY`: optional server-only override for the app's Supabase key when an integration-provided key belongs to another project
+- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`): server-only key for room API routes; never expose it in browser code
 - `HOST_USERNAME`: username for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
 - `HOST_PASSWORD`: long random password for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
 - `HOST_GOOGLE_EMAILS`: optional comma-separated exact Google account email allowlist for host console access; artist signup is self-serve
 
-When deployed through the Vercel Supabase integration, the project also accepts its `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SECRET_KEY` variables. `APP_SUPABASE_URL`, when set, overrides the integration URL. The server secret is only used server-side; the URL and anon key are mapped for the browser client.
+When deployed through the Vercel Supabase integration, the project also accepts its `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SECRET_KEY` variables. `APP_SUPABASE_URL` and `APP_SUPABASE_SECRET_KEY`, when set, override the integration-provided project URL and server key. The server secret is only used server-side; the URL and anon key are mapped for the browser client.
 
 ## 3. Host profile and room setup
 Configure host sign-in with a strong, unique `HOST_USERNAME` and `HOST_PASSWORD`, or configure Google OAuth and set `HOST_GOOGLE_EMAILS` to the exact allowed host accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, allow `http://localhost:3001/signup/callback`, `http://localhost:3001/host/callback`, and corresponding deployed URLs.
