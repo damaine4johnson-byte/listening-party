@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
+import { useRoomVideo } from "./use-room-video";
+import "./room-console.css";
 
 type RoomState = {
   room_id: string;
@@ -31,7 +33,13 @@ function formatTime(seconds: number) {
   return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
 }
 
-export default function RoomClient({ displayName }: { displayName: string }) {
+function hashString(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return hash;
+}
+
+export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [state, setState] = useState<RoomState | null>(null);
   const [tracks, setTracks] = useState<RoomTrack[]>([]);
@@ -39,12 +47,25 @@ export default function RoomClient({ displayName }: { displayName: string }) {
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [body, setBody] = useState("");
   const [notice, setNotice] = useState("Connecting to room...");
+  const [tipTrackId, setTipTrackId] = useState<string | null>(null);
+  const [tipBusy, setTipBusy] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [roomTitle, setRoomTitle] = useState("Listening room");
+  const [roomDescription, setRoomDescription] = useState("");
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [showAds, setShowAds] = useState(false);
   const [houseAd, setHouseAd] = useState<HouseAd | null>(null);
   const [pending, setPending] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [scrub, setScrub] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const video = useRoomVideo(muted);
+  const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
+  const seenReactions = useRef<Set<string> | null>(null);
+  const chatLogRef = useRef<HTMLDivElement>(null);
 
   const activeTrack = tracks.find((track) => track.id === state?.track_id) ?? null;
   const activeTrackIndex = tracks.findIndex((track) => track.id === state?.track_id);
@@ -66,6 +87,7 @@ export default function RoomClient({ displayName }: { displayName: string }) {
           if (active) setNotice(result.error || "Could not load room data.");
         } else if (active) {
           setRoomTitle(result.room.title);
+          setRoomDescription(result.room.description ?? "");
           setState(result.state);
           setMessages(result.messages);
           setReactions(result.reactions ?? []);
@@ -99,7 +121,7 @@ export default function RoomClient({ displayName }: { displayName: string }) {
       }
     }
     void loadTracks();
-    const refreshTimer = window.setInterval(loadTracks, 50 * 60 * 1000);
+    const refreshTimer = window.setInterval(loadTracks, 6_000);
     return () => { active = false; window.clearInterval(refreshTimer); };
   }, []);
 
@@ -118,6 +140,32 @@ export default function RoomClient({ displayName }: { displayName: string }) {
       audio.pause();
     }
   }, [state, activeTrack]);
+
+  useEffect(() => {
+    // Reactions that arrive after the first load float up over the stage.
+    if (!state) return;
+    if (seenReactions.current === null) {
+      seenReactions.current = new Set(reactions.map((reaction) => reaction.id));
+      return;
+    }
+    const seen = seenReactions.current;
+    const fresh = reactions.filter((reaction) => !seen.has(reaction.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((reaction) => seen.add(reaction.id));
+    const added = fresh.slice(-6).map((reaction) => ({
+      id: reaction.id,
+      symbol: REACTIONS.find((item) => item.id === reaction.reaction)?.symbol ?? "♥",
+      left: 8 + (hashString(reaction.id) % 80),
+    }));
+    setFloaters((current) => [...current, ...added].slice(-24));
+    const ids = new Set(added.map((item) => item.id));
+    window.setTimeout(() => setFloaters((current) => current.filter((item) => !ids.has(item.id))), 3400);
+  }, [reactions, state]);
+
+  useEffect(() => {
+    const log = chatLogRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [messages]);
 
   async function sendChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,7 +222,7 @@ export default function RoomClient({ displayName }: { displayName: string }) {
         return;
       }
       setState(result.state);
-      if (status === "playing") await audioRef.current?.play().catch(() => undefined);
+      if (status === "playing") void audioRef.current?.play().catch(() => undefined);
       else audioRef.current?.pause();
       setNotice(status === "playing" ? "Playback started for the room." : "Playback paused for the room.");
     } catch {
@@ -184,27 +232,39 @@ export default function RoomClient({ displayName }: { displayName: string }) {
     }
   }
 
-  async function selectTrack(track: RoomTrack) {
-    if (!isHost || pending) return;
-    setPending(true);
+  async function startTip(track: RoomTrack, amountCents: number) {
+    setTipBusy(true);
     try {
-      const response = await fetch("/api/rooms/playback", {
+      const response = await fetch("/api/rooms/tips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paused", trackId: track.id, positionSeconds: 0 }),
+        body: JSON.stringify({ trackId: track.id, amountCents }),
       });
       const result = await response.json();
       if (!response.ok) {
-        setNotice(result.error || "Could not select that track.");
+        setNotice(result.error || "Could not start the tip.");
         return;
       }
-      setState(result.state);
-      setNotice(`Selected ${track.title}.`);
+      window.location.assign(result.url);
     } catch {
-      setNotice("Playback service is temporarily unavailable.");
+      setNotice("Tip service is temporarily unavailable.");
     } finally {
-      setPending(false);
+      setTipBusy(false);
     }
+  }
+
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get("tip");
+    if (!result) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    setNotice(result === "ok"
+      ? "Thanks for the tip! Your song moves up to play next."
+      : "Your tip was not completed, so nothing was charged.");
+  }, []);
+
+  async function selectTrack(track: RoomTrack) {
+    if (!isHost) return;
+    await setPlayback(isPlaying ? "playing" : "paused", track.id, 0);
   }
 
   async function advanceTrack() {
@@ -213,14 +273,68 @@ export default function RoomClient({ displayName }: { displayName: string }) {
       return;
     }
     const nextTrack = tracks[(tracks.findIndex((track) => track.id === activeTrack.id) + 1) % tracks.length];
-    await selectTrack(nextTrack);
     await setPlayback("playing", nextTrack.id, 0);
   }
 
-  const recentReactions = reactions.slice(-8);
+  async function previousTrack() {
+    if (!activeTrack) return;
+    const index = tracks.findIndex((track) => track.id === activeTrack.id);
+    // Like most players: restart the song first, go back only when already near the start.
+    if ((audioRef.current?.currentTime ?? 0) > 3 || index <= 0) {
+      await setPlayback(isPlaying ? "playing" : "paused", activeTrack.id, 0);
+      return;
+    }
+    await setPlayback(isPlaying ? "playing" : "paused", tracks[index - 1].id, 0);
+  }
+
+  async function seekTo(seconds: number) {
+    if (!activeTrack) return;
+    const limit = activeTrack.durationSeconds ?? (duration || seconds);
+    await setPlayback(isPlaying ? "playing" : "paused", activeTrack.id, Math.max(0, Math.min(seconds, limit)));
+  }
+
+  async function commitScrub() {
+    if (scrub === null) return;
+    const target = scrub;
+    setScrub(null);
+    await seekTo(target);
+  }
+
+  async function moveTrack(from: number, to: number) {
+    if (!isHost || reordering || from === to || to < 0 || to >= tracks.length || !state) return;
+    const previous = tracks;
+    const reordered = [...tracks];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setTracks(reordered);
+    setReordering(true);
+    try {
+      const response = await fetch("/api/host/rooms/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: state.room_id, trackIds: reordered.map((track) => track.id) }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not reorder playlist.");
+      setNotice(`Moved ${moved.title}.`);
+    } catch (error) {
+      setTracks(previous);
+      setNotice(error instanceof Error ? error.message : "Could not reorder playlist.");
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  const hue = hashString(roomTitle) % 360;
+  const isPlaying = state?.status === "playing";
+  const showLive = isPlaying || video.hasVideo;
+  const trackLength = activeTrack?.durationSeconds ?? (duration || 0);
+  const progress = trackLength > 0 ? Math.min(100, (currentTime / trackLength) * 100) : 0;
+  const participants = new Set([...messages.map((m) => m.display_name), ...reactions.map((r) => r.display_name), displayName]).size;
+  const hostInitial = (hostProfile?.display_name || "H").charAt(0).toUpperCase();
 
   return (
-    <main className="wrap">
+    <main className="wrap rm-wrap">
       <header className="nav">
         <Link href="/" className="brand" style={{ textDecoration: "none" }}>
           <LogoMark />
@@ -229,97 +343,99 @@ export default function RoomClient({ displayName }: { displayName: string }) {
         <span className="tag">INVITE-ONLY ROOM</span>
       </header>
 
-      <section className="hero">
-        <div className="eyebrow">You're on the list</div>
-        <h1>{roomTitle}</h1>
-        <p>Welcome, {displayName}. Listen together and share your reactions live.</p>
-        {hostProfile?.display_name && (
-          <div className="row" style={{ marginTop: 20 }}>
-            {hostProfile.avatar_url && <img src={hostProfile.avatar_url} alt="" width={56} height={56} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: "50%" }} />}
-            <div><strong>{hostProfile.display_name}</strong>{hostProfile.bio && <p className="muted" style={{ margin: "4px 0 0" }}>{hostProfile.bio}</p>}</div>
-          </div>
-        )}
-      </section>
-
-      {showAds && houseAd && (
-        <aside className="panel" aria-label="Advertisement" style={{ marginBottom: 20 }}>
-          <div className="eyebrow">Advertisement</div>
-          <h2>{houseAd.title}</h2>
-          <p className="muted">{houseAd.body}</p>
-          <Link className="btn secondary" href={houseAd.href}>Learn more</Link>
-        </aside>
-      )}
-
-      <section className="grid">
-        <div className="panel">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2>Now playing</h2>
-            <span className="status">● {state?.status ?? "waiting"}</span>
-          </div>
-          <div className="player">
-            <div className="eyebrow">FAMOUS INTROVERT EXCLUSIVE</div>
-            <div className="tracktitle">{activeTrack?.title ?? "Choose a track"}</div>
-            <p className="muted">{activeTrack ? "Room playback follows the host." : "The host hasn't added a track to this room yet."}</p>
-            <div className="row" aria-live="polite" style={{ justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-              <span className="small">UP NEXT</span>
-              <strong>{upNextTrack?.title ?? (tracks.length === 1 ? "End of playlist" : tracks.length === 0 ? "Waiting for playlist" : "Choose a track")}</strong>
+      <div className="rm-layout">
+        <div className="rm-main">
+          <div className={`rm-stage ${video.hasVideo ? "has-video" : ""}`} style={{ ["--hue" as string]: hue }}>
+            <div className="rm-glow" aria-hidden="true" />
+            <video ref={video.videoRef} className="rm-video" autoPlay playsInline muted aria-label="Host live video" />
+            <div ref={video.audioBoxRef} hidden />
+            <div className="rm-badges">
+              <span className={`rm-live ${showLive ? "on" : ""}`}>{showLive ? "● LIVE" : "❚❚ PAUSED"}</span>
+              <span className="rm-viewers">👥 {participants} in the room</span>
+            </div>
+            <div className="rm-art-wrap">
+              <div className={`rm-art ${isPlaying ? "spin" : ""}`}>
+                <div className="rm-art-label">{(activeTrack?.title ?? roomTitle).slice(0, 2).toUpperCase()}</div>
+              </div>
+              <div className={`rm-eq ${isPlaying ? "on" : ""}`} aria-hidden="true">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <span key={i} style={{ animationDelay: `${(i % 8) * 0.12}s`, height: `${30 + ((i * 37) % 70)}%` }} />
+                ))}
+              </div>
+            </div>
+            <div className="rm-floaters" aria-hidden="true">
+              {floaters.map((floater) => (
+                <span key={floater.id} style={{ left: `${floater.left}%` }}>{floater.symbol}</span>
+              ))}
+            </div>
+            <div className="rm-overlay">
+              <div className="rm-now">
+                <span className="rm-now-label">NOW PLAYING</span>
+                <strong>{activeTrack?.title ?? "Waiting for the host"}</strong>
+              </div>
+              {isHost && activeTrack && trackLength > 0 ? (
+                <input
+                  className="rm-seek"
+                  type="range"
+                  min={0}
+                  max={Math.floor(trackLength)}
+                  step={1}
+                  value={Math.min(Math.floor(scrub ?? currentTime), Math.floor(trackLength))}
+                  style={{ ["--pct" as string]: `${Math.min(100, ((scrub ?? currentTime) / trackLength) * 100)}%` }}
+                  aria-label="Seek the whole room to a position in this track"
+                  onChange={(event) => setScrub(Number(event.target.value))}
+                  onPointerUp={() => void commitScrub()}
+                  onKeyUp={() => void commitScrub()}
+                  onBlur={() => void commitScrub()}
+                />
+              ) : (
+                <div className="rm-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-label="Track progress">
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+              )}
+              <div className="rm-controls">
+                <span className="rm-time">{formatTime(scrub ?? currentTime)} / {formatTime(trackLength)}</span>
+                <div className="row">
+                  {activeTrack && (
+                    <button className="rm-pill" type="button" onClick={() => void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."))}>
+                      ▶ Tap to listen
+                    </button>
+                  )}
+                  <button className="rm-pill ghost" type="button" aria-pressed={muted} onClick={() => setMuted((value) => !value)}>
+                    {muted ? "🔇 Muted" : "🔊 Sound on"}
+                  </button>
+                </div>
+              </div>
             </div>
             <audio
               ref={audioRef}
-              src={activeTrack?.url}
-              controls
+              src={activeTrack?.url || undefined}
+              muted={muted}
               preload="metadata"
+              onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
               onEnded={() => { if (isHost) void advanceTrack(); }}
-              style={{ width: "100%", marginTop: 10 }}
             />
-            {isHost && (
-              <div className="row" style={{ marginTop: 14 }}>
-                <button className="btn" type="button" disabled={pending || !activeTrack} onClick={() => void setPlayback("playing")}>
-                  Play for room
-                </button>
-                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void setPlayback("paused")}>
-                  Pause room
-                </button>
-                <button className="btn secondary" type="button" disabled={pending || tracks.length < 2} onClick={() => void advanceTrack()}>
-                  Next track
-                </button>
-              </div>
-            )}
           </div>
 
-          <div className="divider" />
-          <h2>Playlist <span className="small">{tracks.length} tracks</span></h2>
-          {tracks.length === 0 ? (
-            <p className="muted">No audio has been added to this room yet.</p>
-          ) : (
-            <ol className="chatlog" style={{ height: "auto", maxHeight: 320 }}>
-              {tracks.map((track, index) => (
-                <li className="message" key={track.id} style={{ listStyle: "none" }}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <button
-                      className="btn secondary"
-                      type="button"
-                      aria-current={state?.track_id === track.id ? "true" : undefined}
-                      disabled={!isHost || pending}
-                      onClick={() => void selectTrack(track)}
-                    >
-                      {String(index + 1).padStart(2, "0")} · {track.title}
-                    </button>
-                    <span className="small">{track.durationSeconds ? formatTime(track.durationSeconds) : "Audio"}</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
+          <div className="rm-info">
+            <h1>{roomTitle}</h1>
+            <div className="rm-host">
+              {hostProfile?.avatar_url
+                ? <img src={hostProfile.avatar_url} alt="" className="rm-avatar" />
+                : <span className="rm-avatar fallback">{hostInitial}</span>}
+              <div>
+                <strong>{hostProfile?.display_name ?? "Host"} <span className="rm-verified">HOST</span></strong>
+                {hostProfile?.bio && <p className="small">{hostProfile.bio}</p>}
+              </div>
+            </div>
+            {roomDescription && <p className="rm-desc">{roomDescription}</p>}
+            <p className="small">Welcome, {displayName}. Listen together and share your reactions live.</p>
+          </div>
 
-        <aside className="panel">
-          <h2>Live chat</h2>
-          <p className="muted">Share a thought or send a quick reaction.</p>
-          <div className="row" aria-label="Send a reaction">
+          <div className="rm-reactions" aria-label="Send a reaction">
             {REACTIONS.map((reaction) => (
               <button
-                className="btn secondary"
                 type="button"
                 key={reaction.id}
                 aria-label={`Send ${reaction.label} reaction`}
@@ -330,36 +446,151 @@ export default function RoomClient({ displayName }: { displayName: string }) {
               </button>
             ))}
           </div>
-          {recentReactions.length > 0 && (
-            <div className="row" aria-live="polite" style={{ marginTop: 10 }}>
-              {recentReactions.map((reaction) => (
-                <span className="tag" key={reaction.id} title={`${reaction.display_name} reacted`}>
-                  {REACTIONS.find((item) => item.id === reaction.reaction)?.symbol} {reaction.display_name}
-                </span>
-              ))}
+
+          {showAds && houseAd && (
+            <aside className="rm-ad" aria-label="Advertisement">
+              <div className="eyebrow">Advertisement</div>
+              <h2>{houseAd.title}</h2>
+              <p className="muted">{houseAd.body}</p>
+              <Link className="btn secondary" href={houseAd.href}>Learn more</Link>
+            </aside>
+          )}
+
+          {isHost && (
+            <div className="rm-host-controls">
+              <strong>Host controls</strong>
+              {(video.canPublish || previewVideoControls) && (
+                <div className="row">
+                  <button className={`btn ${video.cameraOn ? "" : "secondary"}`} type="button" aria-pressed={video.cameraOn} onClick={() => void video.toggleCamera()}>
+                    {video.cameraOn ? "■ Stop camera" : "🎥 Share camera"}
+                  </button>
+                  <button className={`btn ${video.screenOn ? "" : "secondary"}`} type="button" aria-pressed={video.screenOn} onClick={() => void video.toggleScreen()}>
+                    {video.screenOn ? "■ Stop screen share" : "🖥 Share screen"}
+                  </button>
+                </div>
+              )}
+              {video.error && <p className="small" role="alert">{video.error}</p>}
+              <div className="rm-transport">
+                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void previousTrack()}>
+                  ⏮ Previous
+                </button>
+                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) - 15)}>
+                  ⏪ 15s
+                </button>
+                <button className="btn" type="button" disabled={pending || !activeTrack} onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}>
+                  {isPlaying ? "❚❚ Pause room" : "▶ Play for room"}
+                </button>
+                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) + 15)}>
+                  15s ⏩
+                </button>
+                <button className="btn secondary" type="button" disabled={pending || tracks.length < 2} onClick={() => void advanceTrack()}>
+                  Next ⏭
+                </button>
+              </div>
+              <p className="small">Drag the progress bar on the stage to jump the whole room to any point in the song.</p>
             </div>
           )}
-          <div className="chatlog" aria-live="polite">
+
+          <section className="rm-playlist" aria-labelledby="playlist-title">
+            <h2 id="playlist-title">Up next <span className="small">{tracks.length} tracks</span></h2>
+            {upNextTrack && <p className="small" aria-live="polite">Next: <strong>{upNextTrack.title}</strong></p>}
+            {isHost && tracks.length > 1 && <p className="small">Drag tracks or use the arrows to reorder the playlist while live.</p>}
+            {tracks.length === 0 ? (
+              <p className="muted">No audio has been added to this room yet.</p>
+            ) : (
+              <ol>
+                {tracks.map((track, index) => {
+                  const current = state?.track_id === track.id;
+                  return (
+                    <li
+                      key={track.id}
+                      className={dragIndex === index ? "dragging" : ""}
+                      draggable={isHost && !reordering}
+                      onDragStart={() => setDragIndex(index)}
+                      onDragOver={(event) => { if (dragIndex !== null) event.preventDefault(); }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (dragIndex !== null) void moveTrack(dragIndex, index);
+                        setDragIndex(null);
+                      }}
+                      onDragEnd={() => setDragIndex(null)}
+                    >
+                      <button
+                        type="button"
+                        className={`rm-select ${current ? "current" : ""}`}
+                        aria-current={current ? "true" : undefined}
+                        disabled={!isHost || pending}
+                        onClick={() => void selectTrack(track)}
+                      >
+                        <span className="rm-thumb" style={{ ["--hue" as string]: (hashString(track.title) % 360) }}>
+                          {current && isPlaying ? "♪" : String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="rm-track-title">{track.title}</span>
+                        <span className="small">{track.durationSeconds ? formatTime(track.durationSeconds) : "Audio"}</span>
+                      </button>
+                      {!isHost && !current && (
+                        <button type="button" className="rm-boost" disabled={tipBusy} onClick={() => setTipTrackId(tipTrackId === track.id ? null : track.id)}>
+                          ⚡ Boost
+                        </button>
+                      )}
+                      {tipTrackId === track.id && !isHost && (
+                        <span className="rm-tip-menu" role="group" aria-label={`Tip to boost ${track.title}`}>
+                          <span className="small">Tip to play next:</span>
+                          {[300, 500, 1000].map((cents) => (
+                            <button key={cents} type="button" disabled={tipBusy} onClick={() => void startTip(track, cents)}>
+                              ${cents / 100}
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                      {isHost && (
+                        <span className="rm-reorder">
+                          <button type="button" aria-label={`Move ${track.title} up`} disabled={reordering || index === 0} onClick={() => void moveTrack(index, index - 1)}>▲</button>
+                          <button type="button" aria-label={`Move ${track.title} down`} disabled={reordering || index === tracks.length - 1} onClick={() => void moveTrack(index, index + 1)}>▼</button>
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+        </div>
+
+
+        <aside className="rm-chat" aria-labelledby="live-chat-title">
+          <div className="rm-chat-head">
+            <h2 id="live-chat-title">Live chat</h2>
+            <span className="small">{participants} here</span>
+          </div>
+          <div className="rm-chatlog" ref={chatLogRef} aria-live="polite">
             {messages.length === 0
               ? <p className="muted">No messages yet. Start the conversation.</p>
-              : messages.map((message) => (
-                <div className="message" key={message.id}>
-                  <strong>{message.display_name}</strong> {message.body}
-                  <div className="small">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-                </div>
-              ))}
+              : messages.map((message) => {
+                const fromHost = message.display_name === hostProfile?.display_name;
+                return (
+                  <div className={`rm-msg ${fromHost ? "host" : ""}`} key={message.id}>
+                    <span className="rm-msg-avatar" style={{ ["--hue" as string]: (hashString(message.display_name) % 360) }}>
+                      {message.display_name.charAt(0).toUpperCase()}
+                    </span>
+                    <div>
+                      <strong>{message.display_name}</strong>
+                      {fromHost && <span className="rm-verified">HOST</span>}
+                      <span className="rm-msg-time">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      <p>{message.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
-          <form onSubmit={sendChat}>
-            <div className="field">
-              <label htmlFor="chat">Message as {displayName}</label>
-              <input id="chat" value={body} onChange={(event) => setBody(event.target.value)} maxLength={500} placeholder="Share your reaction..." required />
-            </div>
-            <button className="btn" type="submit">Send message</button>
+          <form className="rm-chat-form" onSubmit={sendChat}>
+            <label className="rm-sr" htmlFor="chat">Message as {displayName}</label>
+            <input id="chat" value={body} onChange={(event) => setBody(event.target.value)} maxLength={500} placeholder={`Chat as ${displayName}...`} required />
+            <button className="rm-send" type="submit" aria-label="Send message">➤</button>
           </form>
-          <div className="divider" />
-          <p className="small" role="status">{notice}</p>
+          <p className="small rm-notice" role="status">{notice}</p>
         </aside>
-      </section>
+      </div>
       <footer className="footer">Private previews · Please do not redistribute unreleased music.</footer>
     </main>
   );

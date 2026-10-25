@@ -52,8 +52,20 @@ export default function ArtistSignupForm() {
                 Up to {tier.maxListeners.toLocaleString()} listeners
               </span>
               <span className="small" style={{ display: "block", marginTop: 8 }}>
-                {tier.ads ? "Ad-supported rooms" : "No ads"}
+                {tier.ads ? "Ad-supported rooms" : "Ad-free rooms when active"}
               </span>
+              <span className="small" style={{ display: "block", marginTop: 12 }}>
+                <strong>Included</strong>
+              </span>
+              <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
+                {tier.perks.map((perk) => <li key={perk}>{perk}</li>)}
+              </ul>
+              <span className="small" style={{ display: "block", marginTop: 12 }}>
+                <strong>Not included</strong>
+              </span>
+              <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
+                {tier.notIncluded.map((limitation) => <li key={limitation}>{limitation}</li>)}
+              </ul>
               {tier.id !== "free" && <span className="small">Billing activation is not available yet.</span>}
             </label>
           ))}

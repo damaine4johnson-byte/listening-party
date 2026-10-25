@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 import { artistTierDetails, effectiveArtistTier, isArtistTier } from "../../../../lib/artist-tiers";
 import { getPlatformSettings } from "../../../../lib/platform-settings";
+import { isWipayConfigured, MAX_ENTRY_FEE_CENTS, MIN_ENTRY_FEE_CENTS } from "../../../../lib/wipay";
 
 function hasSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await createSupabaseAdmin()
       .from("rooms")
-      .select("id, title, slug, status, max_listeners, created_at")
+      .select("id, title, description, slug, status, max_listeners, entry_fee_cents, created_at")
       .eq("host_id", session.hostId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -46,23 +47,40 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Enter a room title." }, { status: 400 });
   }
-  const values = input && typeof input === "object" ? input as { title?: unknown } : {};
+  const values = input && typeof input === "object" ? input as { title?: unknown; description?: unknown; entryFeeCents?: unknown } : {};
   const title = typeof values.title === "string" ? values.title.trim() : "";
-  if (!title || title.length > 100) {
+  const description = typeof values.description === "string" ? values.description.trim() : "";
+  if (!title || title.length > 100 || description.length > 500) {
     return NextResponse.json({ error: "Enter a room title up to 100 characters." }, { status: 400 });
+  }
+  const entryFeeCents = values.entryFeeCents === undefined || values.entryFeeCents === null ? 0 : values.entryFeeCents;
+  if (
+    typeof entryFeeCents !== "number" || !Number.isInteger(entryFeeCents) ||
+    (entryFeeCents !== 0 && (entryFeeCents < MIN_ENTRY_FEE_CENTS || entryFeeCents > MAX_ENTRY_FEE_CENTS))
+  ) {
+    return NextResponse.json({ error: "Entry fee must be between $1 and $1,000." }, { status: 400 });
   }
 
   try {
     const supabase = createSupabaseAdmin();
     const { data: profile, error: profileError } = await supabase
       .from("host_profiles")
-      .select("plan_tier, subscription_status")
+      .select("plan_tier, subscription_status, paypal_email")
       .eq("host_id", session.hostId)
       .maybeSingle();
     if (profileError) return NextResponse.json({ error: "Could not load artist tier." }, { status: 503 });
     const requestedTier = isArtistTier(profile?.plan_tier) ? profile.plan_tier : "free";
     const effectiveTier = effectiveArtistTier(requestedTier, profile?.subscription_status ?? "active");
     const maxListeners = artistTierDetails(effectiveTier).maxListeners;
+    if (entryFeeCents > 0) {
+      if (!artistTierDetails(effectiveTier).paidRooms) {
+        return NextResponse.json({ error: "Paid entry rooms require an active Tier 2 or higher plan." }, { status: 403 });
+      }
+      const payoutsReady = isWipayConfigured() && Boolean(profile?.paypal_email);
+      if (!payoutsReady) {
+        return NextResponse.json({ error: "Finish payout setup before creating a paid room." }, { status: 403 });
+      }
+    }
     const platformSettings = await getPlatformSettings();
     const inviteCode = randomBytes(24).toString("base64url");
     const inviteCodeHash = createHash("sha256").update(inviteCode).digest("hex");
@@ -72,13 +90,15 @@ export async function POST(request: NextRequest) {
       .from("rooms")
       .insert({
         title,
+        description,
         slug,
         invite_code_hash: inviteCodeHash,
         host_id: session.hostId,
         max_listeners: maxListeners,
+        entry_fee_cents: entryFeeCents,
         status: platformSettings.new_room_status,
       })
-      .select("id, title, slug, status, created_at")
+      .select("id, title, description, slug, status, entry_fee_cents, created_at")
       .single();
 
     if (error || !room) {

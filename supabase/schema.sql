@@ -28,7 +28,8 @@ create table if not exists public.host_profiles (
   bio text not null default '' check (char_length(bio) <= 400),
   avatar_url text not null default '' check (char_length(avatar_url) <= 2048),
   contact_email text not null default '' check (char_length(contact_email) <= 320),
-  plan_tier text not null default 'free' check (plan_tier in ('free', 'tier2', 'tier3')),
+  paypal_email text,
+  plan_tier text not null default 'free' check (plan_tier in ('free', 'tier2', 'tier3', 'tier4')),
   subscription_status text not null default 'active' check (subscription_status in ('active', 'pending', 'canceled')),
   updated_at timestamptz not null default now()
 );
@@ -45,6 +46,13 @@ create table if not exists public.rooms (
   starts_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.rooms
+  add column if not exists description text not null default '' check (char_length(description) <= 500);
+
+alter table public.rooms
+  add column if not exists entry_fee_cents integer not null default 0
+  check (entry_fee_cents = 0 or entry_fee_cents between 100 and 100000);
 
 create table if not exists public.room_tracks (
   id uuid primary key default gen_random_uuid(),
@@ -171,3 +179,39 @@ revoke all on public.platform_settings from anon, authenticated;
 -- has been implemented. Never expose the service-role key to the browser.
 revoke all on function public.join_room_with_limit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.join_room_with_limit(uuid, uuid, text) to service_role;
+
+-- WiPay orders and artist earnings (paid through PayPal Payouts).
+create table if not exists public.payment_orders (
+  order_id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('entry', 'tip')),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  host_id text,
+  track_id uuid references public.room_tracks(id) on delete set null,
+  member_id uuid,
+  display_name text,
+  amount_cents integer not null check (amount_cents > 0),
+  status text not null default 'pending' check (status in ('pending', 'paid')),
+  wipay_transaction_id text unique,
+  claimed_at timestamptz,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+create table if not exists public.host_earnings (
+  id uuid primary key default gen_random_uuid(),
+  host_id text not null,
+  order_id uuid not null unique references public.payment_orders(order_id) on delete cascade,
+  gross_cents integer not null,
+  fee_cents integer not null,
+  net_cents integer not null,
+  payout_batch_id text,
+  paid_out_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists host_earnings_unpaid_idx on public.host_earnings (host_id) where paid_out_at is null;
+
+alter table public.payment_orders enable row level security;
+alter table public.host_earnings enable row level security;
+revoke all on public.payment_orders from anon, authenticated;
+revoke all on public.host_earnings from anon, authenticated;

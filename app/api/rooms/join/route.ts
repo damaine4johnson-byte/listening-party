@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createRoomSessionToken, ROOM_SESSION_COOKIE, ROOM_SESSION_MAX_AGE } from "../../../../lib/room-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
+import { readActiveHostSession } from "../../../../lib/host-profile";
 
 function getSupabaseHost() {
   const url = process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -45,9 +47,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter an invitation code and display name." }, { status: 400 });
   }
 
-  const values = input as { code?: unknown; displayName?: unknown };
+  const values = input as { code?: unknown; displayName?: unknown; paymentSessionId?: unknown };
   const code = typeof values.code === "string" ? values.code.trim() : "";
   const displayName = typeof values.displayName === "string" ? values.displayName.trim().slice(0, 32) : "";
+  const paymentSessionId = typeof values.paymentSessionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(values.paymentSessionId)
+    ? values.paymentSessionId
+    : "";
   if (!code || code.length > 128 || !displayName) {
     return NextResponse.json({ error: "Enter an invitation code and display name." }, { status: 400 });
   }
@@ -57,7 +62,7 @@ export async function POST(request: NextRequest) {
     const inviteCodeHash = createHash("sha256").update(code).digest("hex");
     const { data: room, error } = await supabase
       .from("rooms")
-      .select("id, title, status")
+      .select("id, title, status, host_id, entry_fee_cents")
       .eq("invite_code_hash", inviteCodeHash)
       .maybeSingle();
 
@@ -72,6 +77,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That invitation code is invalid or the room has ended." }, { status: 401 });
     }
 
+    let claimedSessionId = "";
+    if (room.entry_fee_cents > 0) {
+      const hostSession = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+      const isRoomHost = Boolean(hostSession && room.host_id && hostSession.hostId === room.host_id);
+      if (!isRoomHost) {
+        const paymentRequired = {
+          error: "This room requires an entry fee.",
+          paymentRequired: true,
+          entryFeeCents: room.entry_fee_cents,
+          roomTitle: room.title,
+        };
+        if (!paymentSessionId) return NextResponse.json(paymentRequired, { status: 402 });
+
+        const { data: paidOrder } = await supabase
+          .from("payment_orders")
+          .select("order_id")
+          .eq("order_id", paymentSessionId)
+          .eq("kind", "entry")
+          .eq("room_id", room.id)
+          .eq("status", "paid")
+          .maybeSingle();
+        if (!paidOrder) {
+          return NextResponse.json({ ...paymentRequired, error: "Payment was not completed for this room." }, { status: 402 });
+        }
+
+        // The conditional update claims the payment for exactly one listener.
+        const { data: claimed, error: claimError } = await supabase
+          .from("payment_orders")
+          .update({ claimed_at: new Date().toISOString() })
+          .eq("order_id", paymentSessionId)
+          .is("claimed_at", null)
+          .select("order_id");
+        if (claimError) return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
+        if (!claimed?.length) {
+          return NextResponse.json({ error: "This payment has already been used to enter the room." }, { status: 409 });
+        }
+        claimedSessionId = paymentSessionId;
+      }
+    }
+    const releasePaymentClaim = async () => {
+      if (claimedSessionId) {
+        await supabase.from("payment_orders").update({ claimed_at: null }).eq("order_id", claimedSessionId);
+      }
+    };
+
     const memberId = randomUUID();
     const { data: joined, error: membershipError } = await supabase.rpc("join_room_with_limit", {
       p_room_id: room.id,
@@ -80,9 +130,11 @@ export async function POST(request: NextRequest) {
     });
     if (membershipError) {
       console.error("Room join membership RPC failed", { code: membershipError.code || "unknown" });
+      await releasePaymentClaim();
       return NextResponse.json({ error: "Room capacity service is not configured." }, { status: 503 });
     }
     if (!joined) {
+      await releasePaymentClaim();
       return NextResponse.json({ error: "This room has reached its listener limit." }, { status: 409 });
     }
 
@@ -95,6 +147,7 @@ export async function POST(request: NextRequest) {
     if (stateError) {
       console.error("Room join state initialization failed", { code: stateError.code || "unknown" });
       await supabase.from("room_memberships").delete().eq("room_id", room.id).eq("member_id", memberId);
+      await releasePaymentClaim();
       return NextResponse.json({ error: "Room state could not be initialized." }, { status: 503 });
     }
 

@@ -88,11 +88,63 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
     }
   }
 
+  async function reorderTrack(index: number, offset: -1 | 1) {
+    const nextIndex = index + offset;
+    if (pending || nextIndex < 0 || nextIndex >= tracks.length) return;
+    const reordered = [...tracks];
+    [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+    setPending(true);
+    try {
+      const response = await fetch("/api/host/rooms/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, trackIds: reordered.map((track) => track.id) }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not reorder playlist.");
+      setTracks(result.tracks);
+      setNotice("Playlist order updated.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not reorder playlist.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function removeTrack(track: Track) {
+    if (pending || !window.confirm(`Remove “${track.title}” from this room?`)) return;
+    setPending(true);
+    try {
+      const response = await fetch("/api/host/rooms/tracks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, trackId: track.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not remove track.");
+      setTracks((current) => current.filter((item) => item.id !== track.id));
+      setNotice(`Removed ${track.title}.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not remove track.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="field">
       <strong>Preload playlist · {tracks.length} tracks</strong>
       <p className="small">Add the full tracklist before starting playback in the room. Tracks play in upload order.</p>
-      {tracks.map((track) => <div className="small" key={track.id}>{track.track_order + 1}. {track.title}</div>)}
+      {tracks.map((track, index) => (
+        <div className="row" key={track.id} style={{ justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}>
+          <span className="small">{track.track_order + 1}. {track.title}</span>
+          <div className="row">
+            <button className="btn secondary" type="button" aria-label={`Move ${track.title} up`} disabled={pending || index === 0} onClick={() => void reorderTrack(index, -1)}>Up</button>
+            <button className="btn secondary" type="button" aria-label={`Move ${track.title} down`} disabled={pending || index === tracks.length - 1} onClick={() => void reorderTrack(index, 1)}>Down</button>
+            <button className="btn secondary" type="button" aria-label={`Remove ${track.title}`} disabled={pending} onClick={() => void removeTrack(track)}>Remove</button>
+          </div>
+        </div>
+      ))}
       <form onSubmit={addTrack}>
         <div className="field">
           <label htmlFor={`track-files-${roomId}`}>Playlist audio files (up to 40 MB each)</label>

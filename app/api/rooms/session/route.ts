@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const reactionSince = new Date(Date.now() - 30_000).toISOString();
     const [roomResult, stateResult, chatResult, reactionResult] = await Promise.all([
-      supabase.from("rooms").select("id, title, status, host_id").eq("id", session.roomId).maybeSingle(),
+      supabase.from("rooms").select("id, title, description, status, host_id").eq("id", session.roomId).maybeSingle(),
       supabase
         .from("room_state")
         .select("room_id, track_id, status, position_seconds, started_at, updated_at")
@@ -80,7 +80,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        room: { id: roomResult.data.id, title: roomResult.data.title, status: roomResult.data.status },
+        room: {
+          id: roomResult.data.id,
+          title: roomResult.data.title,
+          description: roomResult.data.description ?? "",
+          status: roomResult.data.status,
+        },
         state: stateResult.data,
         messages: (chatResult.data ?? []).reverse(),
         reactions: (reactionResult.data ?? []).reverse(),
