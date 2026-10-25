@@ -81,6 +81,12 @@ export default function HostDashboard() {
   const [notice, setNotice] = useState("Loading rooms...");
   const [pending, setPending] = useState(false);
   const [entryFee, setEntryFee] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editFee, setEditFee] = useState("");
+  const [editStatus, setEditStatus] = useState<Room["status"]>("scheduled");
+  const [editBusy, setEditBusy] = useState(false);
   const [payout, setPayout] = useState<PayoutStatus | null>(null);
   const [paypalEmail, setPaypalEmail] = useState("");
 
@@ -136,6 +142,68 @@ export default function HostDashboard() {
     void loadRooms();
     void loadPayout();
   }, []);
+
+  async function openRoom(roomId: string) {
+    setNotice("");
+    try {
+      const response = await fetch("/api/host/rooms/enter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not open the room.");
+        return;
+      }
+      window.location.assign("/room");
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+    }
+  }
+
+  function startEdit(room: Room) {
+    setEditingId(room.id);
+    setEditTitle(room.title);
+    setEditDescription(room.description ?? "");
+    setEditFee(room.entry_fee_cents > 0 ? String(room.entry_fee_cents / 100) : "");
+    setEditStatus(room.status);
+  }
+
+  async function saveEdit(roomId: string) {
+    const feeDollars = editFee.trim() === "" ? 0 : Number(editFee);
+    if (!Number.isFinite(feeDollars) || feeDollars < 0) {
+      setNotice("Enter a valid entry fee.");
+      return;
+    }
+    setEditBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/host/rooms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          title: editTitle,
+          description: editDescription,
+          status: editStatus,
+          entryFeeCents: Math.round(feeDollars * 100),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not save the room.");
+        return;
+      }
+      setRooms((current) => current.map((item) => (item.id === roomId ? result.room : item)));
+      setEditingId("");
+      setNotice("Room updated.");
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -353,6 +421,33 @@ export default function HostDashboard() {
                       {room.entry_fee_cents > 0 ? `${formatFee(room.entry_fee_cents)} entry` : "Free entry"}
                     </span>
                   </div>
+                  <div className="hc-room-actions">
+                    {room.status !== "ended" && (
+                      <button className="btn" type="button" onClick={() => void openRoom(room.id)}>Open room</button>
+                    )}
+                    <button className="btn secondary" type="button" onClick={() => (editingId === room.id ? setEditingId("") : startEdit(room))}>
+                      {editingId === room.id ? "Cancel" : "Edit"}
+                    </button>
+                  </div>
+                  {editingId === room.id && (
+                    <div className="hc-edit">
+                      <label htmlFor={`edit-title-${room.id}`}>Room name</label>
+                      <input id={`edit-title-${room.id}`} value={editTitle} maxLength={100} onChange={(event) => setEditTitle(event.target.value)} />
+                      <label htmlFor={`edit-desc-${room.id}`}>Description</label>
+                      <textarea id={`edit-desc-${room.id}`} value={editDescription} maxLength={500} rows={3} onChange={(event) => setEditDescription(event.target.value)} />
+                      <label htmlFor={`edit-fee-${room.id}`}>Entry fee (USD, blank for free)</label>
+                      <input id={`edit-fee-${room.id}`} inputMode="decimal" value={editFee} onChange={(event) => setEditFee(event.target.value)} />
+                      <label htmlFor={`edit-status-${room.id}`}>Status</label>
+                      <select id={`edit-status-${room.id}`} value={editStatus} onChange={(event) => setEditStatus(event.target.value as Room["status"])}>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="live">Live</option>
+                        <option value="ended">Ended</option>
+                      </select>
+                      <button className="btn" type="button" disabled={editBusy} onClick={() => void saveEdit(room.id)}>
+                        {editBusy ? "Saving..." : "Save changes"}
+                      </button>
+                    </div>
+                  )}
                   <RoomTrackManager roomId={room.id} />
                 </div>
               </article>

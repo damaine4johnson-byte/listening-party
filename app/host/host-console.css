@@ -191,6 +191,26 @@
   overflow-wrap: anywhere;
 }
 
+.hc-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.hc-edit {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.hc-edit .btn {
+  justify-self: start;
+}
+
 .hc-chip.paid {
   background: linear-gradient(90deg, rgb(255 61 139 / 30%), rgb(255 138 61 / 30%));
   color: #fff;

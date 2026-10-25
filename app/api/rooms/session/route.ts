@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { readRoomSessionToken, ROOM_SESSION_COOKIE } from "../../../../lib/room-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getPlatformSettings } from "../../../../lib/platform-settings";
+import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
+import { readActiveHostSession } from "../../../../lib/host-profile";
 
 export async function GET(request: NextRequest) {
   const session = readRoomSessionToken(request.cookies.get(ROOM_SESSION_COOKIE)?.value);
@@ -78,8 +80,12 @@ export async function GET(request: NextRequest) {
       !hostProfile || hostProfile.plan_tier === "free" || hostProfile.subscription_status !== "active"
     );
 
+    const hostSession = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+    const isHost = Boolean(hostSession && roomResult.data.host_id && hostSession.hostId === roomResult.data.host_id);
+
     return NextResponse.json(
       {
+        isHost,
         room: {
           id: roomResult.data.id,
           title: roomResult.data.title,
