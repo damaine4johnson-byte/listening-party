@@ -791,3 +791,27 @@
   box-shadow: 0 0 18px rgb(255 61 139 / 70%);
   pointer-events: none;
 }
+
+.rm-vol-hover {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border-radius: 999px;
+}
+
+.rm-vol-hover .rm-vol-range {
+  width: 0;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+  transition: width 0.2s ease, opacity 0.2s ease, margin 0.2s ease;
+}
+
+.rm-vol-hover:hover .rm-vol-range,
+.rm-vol-hover:focus-within .rm-vol-range {
+  width: 96px;
+  opacity: 1;
+  margin: 0 8px;
+  pointer-events: auto;
+}

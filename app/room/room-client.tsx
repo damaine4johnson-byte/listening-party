@@ -498,26 +498,6 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 <span className="rm-now-label">NOW PLAYING</span>
                 <strong>{activeTrack?.title ?? "Waiting for the host"}</strong>
               </div>
-              {isHost && activeTrack && trackLength > 0 ? (
-                <input
-                  className="rm-seek"
-                  type="range"
-                  min={0}
-                  max={Math.floor(trackLength)}
-                  step={1}
-                  value={Math.min(Math.floor(scrub ?? currentTime), Math.floor(trackLength))}
-                  style={{ ["--pct" as string]: `${Math.min(100, ((scrub ?? currentTime) / trackLength) * 100)}%` }}
-                  aria-label="Seek the whole room to a position in this track"
-                  onChange={(event) => setScrub(Number(event.target.value))}
-                  onPointerUp={() => void commitScrub()}
-                  onKeyUp={() => void commitScrub()}
-                  onBlur={() => void commitScrub()}
-                />
-              ) : (
-                <div className="rm-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-label="Track progress">
-                  <span style={{ width: `${progress}%` }} />
-                </div>
-              )}
               <div className="rm-controls">
                 <span className="rm-time">{formatTime(scrub ?? currentTime)} / {formatTime(trackLength)}</span>
                 <div className="row">
@@ -526,14 +506,39 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                       {synced ? "● In sync" : "↻ Resync to live"}
                     </button>
                   )}
+                  <div className="rm-vol-hover">
+                    <button
+                      className="rm-vol-icon"
+                      type="button"
+                      aria-pressed={muted}
+                      aria-label={muted ? "Unmute" : "Mute"}
+                      onClick={() => setMuted((value) => !value)}
+                    >
+                      {muted || volume === 0 ? "🔇" : volume < 0.4 ? "🔈" : volume < 0.75 ? "🔉" : "🔊"}
+                    </button>
+                    <input
+                      className="rm-seek rm-vol-range"
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round((muted ? 0 : volume) * 100)}
+                      style={{ ["--pct" as string]: `${Math.round((muted ? 0 : volume) * 100)}%` }}
+                      aria-label="Volume"
+                      onChange={(event) => { setVolume(Number(event.target.value) / 100); setMuted(false); }}
+                    />
+                  </div>
                   {activeTrack && (
                     <button
                       className="rm-play"
                       type="button"
-                      aria-label={audioPaused ? "Play audio on this device" : "Audio is playing on this device"}
-                      onClick={() => void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."))}
+                      aria-label={isHost ? (isPlaying ? "Pause for the room" : "Play for the room") : (audioPaused ? "Play audio on this device" : "Pause audio on this device")}
+                      onClick={() => {
+                        if (isHost) void setPlayback(isPlaying ? "paused" : "playing");
+                        else if (audioPaused) void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."));
+                        else audioRef.current?.pause();
+                      }}
                     >
-                      {audioPaused ? "▶" : "♪"}
+                      {(isHost ? isPlaying : !audioPaused) ? "❚❚" : "▶"}
                     </button>
                   )}
                 </div>
@@ -634,34 +639,12 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                   Next ⏭
                 </button>
               </div>
-              <p className="small">Drag the progress bar on the stage to jump the whole room. Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
+              <p className="small">Use the track pad below to jump the whole room. Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
             </div>
           )}
 
           <section className="rm-playlist" aria-labelledby="playlist-title">
             <div className="rm-mixer" aria-label="Audio controls">
-              <div className="rm-vol">
-                <button
-                  className="rm-vol-icon"
-                  type="button"
-                  aria-pressed={muted}
-                  aria-label={muted ? "Unmute" : "Mute"}
-                  onClick={() => setMuted((value) => !value)}
-                >
-                  {muted || volume === 0 ? "🔇" : volume < 0.4 ? "🔈" : volume < 0.75 ? "🔉" : "🔊"}
-                </button>
-                <input
-                  className="rm-seek rm-vol-range"
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round((muted ? 0 : volume) * 100)}
-                  style={{ ["--pct" as string]: `${Math.round((muted ? 0 : volume) * 100)}%` }}
-                  aria-label="Volume"
-                  onChange={(event) => { setVolume(Number(event.target.value) / 100); setMuted(false); }}
-                />
-                <span className="rm-time">{Math.round((muted ? 0 : volume) * 100)}%</span>
-              </div>
               <div
                 ref={padRef}
                 className={`rm-pad ${padDrag ? "active" : ""}`}
