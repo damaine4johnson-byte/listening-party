@@ -3,6 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRoomSessionToken, ROOM_SESSION_COOKIE, ROOM_SESSION_MAX_AGE } from "../../../../lib/room-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 
+function getSupabaseHost() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  if (!url) return "missing";
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "invalid";
+  }
+}
+
 export async function POST(request: NextRequest) {
   let input: unknown;
   try {
@@ -31,7 +41,10 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error("Room join room lookup failed", { code: error.code || "unknown" });
+      console.error("Room join room lookup failed", {
+        code: error.code || "unknown",
+        supabaseHost: getSupabaseHost(),
+      });
       return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
     }
     if (!room || room.status === "ended") {
