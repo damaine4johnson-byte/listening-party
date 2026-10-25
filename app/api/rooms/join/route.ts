@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
+      console.error("Room join room lookup failed", { code: error.code || "unknown" });
       return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
     }
     if (!room || room.status === "ended") {
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       p_display_name: displayName,
     });
     if (membershipError) {
+      console.error("Room join membership RPC failed", { code: membershipError.code || "unknown" });
       return NextResponse.json({ error: "Room capacity service is not configured." }, { status: 503 });
     }
     if (!joined) {
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
         { onConflict: "room_id", ignoreDuplicates: true },
       );
     if (stateError) {
+      console.error("Room join state initialization failed", { code: stateError.code || "unknown" });
       await supabase.from("room_memberships").delete().eq("room_id", room.id).eq("member_id", memberId);
       return NextResponse.json({ error: "Room state could not be initialized." }, { status: 503 });
     }
@@ -71,6 +74,7 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch {
+    console.error("Room join service setup failed");
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });
   }
 }
