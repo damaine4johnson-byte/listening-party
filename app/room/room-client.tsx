@@ -469,6 +469,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                   </button>
                 </div>
               )}
+              {video.serverReady === false && !previewVideoControls && (
+                <p className="small">Camera and screen sharing are off until live video (LiveKit) is set up on the server.</p>
+              )}
               {video.error && <p className="small" role="alert">{video.error}</p>}
               <div className="rm-transport">
                 <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void previousTrack()}>

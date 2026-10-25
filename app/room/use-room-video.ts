@@ -14,6 +14,7 @@ export function useRoomVideo(muted: boolean) {
   const currentRef = useRef<Track | null>(null);
   const [status, setStatus] = useState<VideoStatus>("off");
   const [canPublish, setCanPublish] = useState(false);
+  const [serverReady, setServerReady] = useState<boolean | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
   const [screenOn, setScreenOn] = useState(false);
@@ -32,6 +33,7 @@ export function useRoomVideo(muted: boolean) {
         const response = await fetch("/api/rooms/video", { cache: "no-store" });
         if (!response.ok) return;
         const result = await response.json();
+        if (!cancelled) setServerReady(Boolean(result.configured));
         if (!result.configured || cancelled) return;
 
         setStatus("connecting");
@@ -122,5 +124,5 @@ export function useRoomVideo(muted: boolean) {
     }
   }, []);
 
-  return { videoRef, audioBoxRef, status, canPublish, hasVideo, cameraOn, screenOn, error, toggleCamera, toggleScreen };
+  return { videoRef, audioBoxRef, status, serverReady, canPublish, hasVideo, cameraOn, screenOn, error, toggleCamera, toggleScreen };
 }
