@@ -61,8 +61,6 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
-  const padRef = useRef<HTMLDivElement>(null);
-  const [padDrag, setPadDrag] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -428,28 +426,6 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  function padPoint(event: React.PointerEvent<HTMLDivElement>) {
-    const rect = padRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    return {
-      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, 1 - (event.clientY - rect.top) / rect.height)),
-    };
-  }
-
-  function padMove(event: React.PointerEvent<HTMLDivElement>) {
-    const point = padPoint(event);
-    if (!point) return;
-    setVolume(point.y);
-    setMuted(false);
-    if (isHost && trackLength > 0) setScrub(point.x * trackLength);
-  }
-
-  function padRelease() {
-    setPadDrag(false);
-    if (isHost) void commitScrub();
-  }
-
   const hue = hashString(roomTitle) % 360;
   const isPlaying = state?.status === "playing";
   const showLive = isPlaying || video.hasVideo;
@@ -639,28 +615,11 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                   Next ⏭
                 </button>
               </div>
-              <p className="small">Use the track pad below to jump the whole room. Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
+              <p className="small">Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
             </div>
           )}
 
           <section className="rm-playlist" aria-labelledby="playlist-title">
-            <div className="rm-mixer" aria-label="Audio controls">
-              <div
-                ref={padRef}
-                className={`rm-pad ${padDrag ? "active" : ""}`}
-                role="group"
-                aria-label={isHost ? "Track pad: drag up and down for volume, left and right to seek the room" : "Track pad: drag up and down for volume"}
-                onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPadDrag(true); padMove(event); }}
-                onPointerMove={(event) => { if (padDrag) padMove(event); }}
-                onPointerUp={padRelease}
-                onPointerCancel={padRelease}
-              >
-                <span className="rm-pad-label rm-pad-y">Volume ↕</span>
-                {isHost && <span className="rm-pad-label rm-pad-x">Seek ↔</span>}
-                <span className="rm-pad-line" style={{ left: `${trackLength > 0 ? Math.min(100, ((scrub ?? currentTime) / trackLength) * 100) : 0}%` }} />
-                <span className="rm-pad-dot" style={{ left: `${trackLength > 0 ? Math.min(100, ((scrub ?? currentTime) / trackLength) * 100) : 50}%`, bottom: `${Math.round((muted ? 0 : volume) * 100)}%` }} />
-              </div>
-            </div>
             <h2 id="playlist-title">Up next <span className="small">{tracks.length} tracks</span></h2>
             {upNextTrack && <p className="small" aria-live="polite">Next: <strong>{upNextTrack.title}</strong></p>}
             {isHost && tracks.length > 1 && <p className="small">Drag tracks or use the arrows to reorder the playlist while live.</p>}
