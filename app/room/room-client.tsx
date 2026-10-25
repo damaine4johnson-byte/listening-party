@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
@@ -59,10 +60,14 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const padRef = useRef<HTMLDivElement>(null);
+  const [padDrag, setPadDrag] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const video = useRoomVideo(muted);
+  const [audioPaused, setAudioPaused] = useState(true);
+  const video = useRoomVideo(muted || volume === 0);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const seenReactions = useRef<Set<string> | null>(null);
   const clockOffset = useRef(0);
@@ -155,6 +160,10 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     const refreshTimer = window.setInterval(loadTracks, 5_000);
     return () => { active = false; window.clearInterval(refreshTimer); };
   }, []);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume, activeTrack?.id]);
 
   const expectedPosition = useCallback(() => {
     if (!state) return 0;
@@ -419,6 +428,28 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  function padPoint(event: React.PointerEvent<HTMLDivElement>) {
+    const rect = padRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return {
+      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, 1 - (event.clientY - rect.top) / rect.height)),
+    };
+  }
+
+  function padMove(event: React.PointerEvent<HTMLDivElement>) {
+    const point = padPoint(event);
+    if (!point) return;
+    setVolume(point.y);
+    setMuted(false);
+    if (isHost && trackLength > 0) setScrub(point.x * trackLength);
+  }
+
+  function padRelease() {
+    setPadDrag(false);
+    if (isHost) void commitScrub();
+  }
+
   const hue = hashString(roomTitle) % 360;
   const isPlaying = state?.status === "playing";
   const showLive = isPlaying || video.hasVideo;
@@ -496,13 +527,15 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                     </button>
                   )}
                   {activeTrack && (
-                    <button className="rm-pill" type="button" onClick={() => void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."))}>
-                      ▶ Tap to listen
+                    <button
+                      className="rm-play"
+                      type="button"
+                      aria-label={audioPaused ? "Play audio on this device" : "Audio is playing on this device"}
+                      onClick={() => void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."))}
+                    >
+                      {audioPaused ? "▶" : "♪"}
                     </button>
                   )}
-                  <button className="rm-pill ghost" type="button" aria-pressed={muted} onClick={() => setMuted((value) => !value)}>
-                    {muted ? "🔇 Muted" : "🔊 Sound on"}
-                  </button>
                 </div>
               </div>
             </div>
@@ -511,6 +544,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               src={activeTrack?.url || undefined}
               muted={muted}
               preload="metadata"
+              onPlay={() => setAudioPaused(false)}
+              onPause={() => setAudioPaused(true)}
               onTimeUpdate={(event) => {
                 const audio = event.currentTarget;
                 setCurrentTime(audio.currentTime);
@@ -604,6 +639,45 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           )}
 
           <section className="rm-playlist" aria-labelledby="playlist-title">
+            <div className="rm-mixer" aria-label="Audio controls">
+              <div className="rm-vol">
+                <button
+                  className="rm-vol-icon"
+                  type="button"
+                  aria-pressed={muted}
+                  aria-label={muted ? "Unmute" : "Mute"}
+                  onClick={() => setMuted((value) => !value)}
+                >
+                  {muted || volume === 0 ? "🔇" : volume < 0.4 ? "🔈" : volume < 0.75 ? "🔉" : "🔊"}
+                </button>
+                <input
+                  className="rm-seek rm-vol-range"
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round((muted ? 0 : volume) * 100)}
+                  style={{ ["--pct" as string]: `${Math.round((muted ? 0 : volume) * 100)}%` }}
+                  aria-label="Volume"
+                  onChange={(event) => { setVolume(Number(event.target.value) / 100); setMuted(false); }}
+                />
+                <span className="rm-time">{Math.round((muted ? 0 : volume) * 100)}%</span>
+              </div>
+              <div
+                ref={padRef}
+                className={`rm-pad ${padDrag ? "active" : ""}`}
+                role="group"
+                aria-label={isHost ? "Track pad: drag up and down for volume, left and right to seek the room" : "Track pad: drag up and down for volume"}
+                onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPadDrag(true); padMove(event); }}
+                onPointerMove={(event) => { if (padDrag) padMove(event); }}
+                onPointerUp={padRelease}
+                onPointerCancel={padRelease}
+              >
+                <span className="rm-pad-label rm-pad-y">Volume ↕</span>
+                {isHost && <span className="rm-pad-label rm-pad-x">Seek ↔</span>}
+                <span className="rm-pad-line" style={{ left: `${trackLength > 0 ? Math.min(100, ((scrub ?? currentTime) / trackLength) * 100) : 0}%` }} />
+                <span className="rm-pad-dot" style={{ left: `${trackLength > 0 ? Math.min(100, ((scrub ?? currentTime) / trackLength) * 100) : 50}%`, bottom: `${Math.round((muted ? 0 : volume) * 100)}%` }} />
+              </div>
+            </div>
             <h2 id="playlist-title">Up next <span className="small">{tracks.length} tracks</span></h2>
             {upNextTrack && <p className="small" aria-live="polite">Next: <strong>{upNextTrack.title}</strong></p>}
             {isHost && tracks.length > 1 && <p className="small">Drag tracks or use the arrows to reorder the playlist while live.</p>}
