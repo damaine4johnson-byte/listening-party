@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { useRoomVideo } from "./use-room-video";
@@ -65,6 +65,11 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const video = useRoomVideo(muted);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const seenReactions = useRef<Set<string> | null>(null);
+  const clockOffset = useRef(0);
+  const lastCommandAt = useRef(0);
+  const advancing = useRef(false);
+  const urlStamps = useRef<Map<string, { url: string; at: number }>>(new Map());
+  const [synced, setSynced] = useState(true);
   const chatLogRef = useRef<HTMLDivElement>(null);
 
   const activeTrack = tracks.find((track) => track.id === state?.track_id) ?? null;
@@ -88,7 +93,17 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         } else if (active) {
           setRoomTitle(result.room.title);
           setRoomDescription(result.room.description ?? "");
-          setState(result.state);
+          if (typeof result.serverTime === "number") clockOffset.current = result.serverTime - Date.now();
+          const next = result.state as RoomState | null;
+          // A fresh local command wins over a poll that may have been read before it landed.
+          if (Date.now() - lastCommandAt.current > 2500) {
+            setState((current) => (
+              current && next && current.track_id === next.track_id && current.status === next.status &&
+              current.started_at === next.started_at && current.position_seconds === next.position_seconds
+                ? current
+                : next
+            ));
+          }
           setMessages(result.messages);
           setReactions(result.reactions ?? []);
           setHostProfile(result.hostProfile);
@@ -100,7 +115,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       } catch {
         if (active) setNotice("Room service is unavailable. Try again shortly.");
       } finally {
-        if (active) timer = window.setTimeout(refreshRoom, 4000);
+        if (active) timer = window.setTimeout(refreshRoom, 2000);
       }
     }
 
@@ -115,31 +130,71 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         const response = await fetch("/api/rooms/tracks", { cache: "no-store" });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not load tracks.");
-        if (active) setTracks(result.tracks);
+        if (active) {
+          const now = Date.now();
+          const incoming = result.tracks as RoomTrack[];
+          // Re-signed URLs differ every poll; swapping src would reload the audio and make songs stall.
+          const merged = incoming.map((track) => {
+            const known = urlStamps.current.get(track.id);
+            if (known && now - known.at < 40 * 60_000) return { ...track, url: known.url };
+            urlStamps.current.set(track.id, { url: track.url, at: now });
+            return track;
+          });
+          setTracks((current) => (
+            current.length === merged.length && current.every((track, i) => (
+              track.id === merged[i].id && track.title === merged[i].title && track.url === merged[i].url &&
+              track.durationSeconds === merged[i].durationSeconds
+            )) ? current : merged
+          ));
+        }
       } catch (error) {
         if (active) setNotice(error instanceof Error ? error.message : "Could not load tracks.");
       }
     }
     void loadTracks();
-    const refreshTimer = window.setInterval(loadTracks, 6_000);
+    const refreshTimer = window.setInterval(loadTracks, 5_000);
     return () => { active = false; window.clearInterval(refreshTimer); };
   }, []);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !state || !activeTrack) return;
-    const expected = state.position_seconds + (
+  const expectedPosition = useCallback(() => {
+    if (!state) return 0;
+    return state.position_seconds + (
       state.status === "playing" && state.started_at
-        ? Math.max(0, (Date.now() - new Date(state.started_at).getTime()) / 1000)
+        ? Math.max(0, (Date.now() + clockOffset.current - new Date(state.started_at).getTime()) / 1000)
         : 0
     );
-    if (Math.abs(audio.currentTime - expected) > 1.5) audio.currentTime = expected;
-    if (state.status === "playing") {
-      void audio.play().catch(() => setNotice("Tap Play to start audio in this browser."));
-    } else {
+  }, [state]);
+
+  const syncAudio = useCallback((hard = false) => {
+    const audio = audioRef.current;
+    if (!audio || !state || !state.track_id) return;
+    if (state.status !== "playing") {
+      audio.playbackRate = 1;
       audio.pause();
+      if (audio.readyState > 0 && Math.abs(audio.currentTime - state.position_seconds) > 0.5) audio.currentTime = state.position_seconds;
+      setSynced(true);
+      return;
     }
-  }, [state, activeTrack]);
+    const drift = audio.currentTime - expectedPosition();
+    if (audio.readyState === 0) return;
+    if (hard || Math.abs(drift) > 1.2) {
+      audio.currentTime = expectedPosition();
+      audio.playbackRate = 1;
+    } else if (Math.abs(drift) > 0.25) {
+      // Small drift is corrected by gently speeding up or slowing down, which is inaudible.
+      audio.playbackRate = drift > 0 ? 0.97 : 1.03;
+    } else {
+      audio.playbackRate = 1;
+    }
+    setSynced(Math.abs(drift) < 1.2);
+    if (audio.paused) void audio.play().catch(() => setNotice("Tap Play to start audio in this browser."));
+  }, [state, expectedPosition]);
+
+  useEffect(() => {
+    syncAudio();
+    const timer = window.setInterval(() => syncAudio(), 1000);
+    return () => window.clearInterval(timer);
+  }, [syncAudio, activeTrack?.id]);
 
   useEffect(() => {
     // Reactions that arrive after the first load float up over the stage.
@@ -208,7 +263,24 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   }
 
   async function setPlayback(status: "playing" | "paused", trackId = state?.track_id, positionSeconds = audioRef.current?.currentTime ?? 0) {
-    if (!isHost || pending || !trackId) return;
+    if (!isHost || !trackId || !state) return;
+    const previous = state;
+    const sentAt = Date.now();
+    lastCommandAt.current = sentAt;
+    // Apply the command locally first so the controls respond instantly.
+    setState({
+      ...state,
+      track_id: trackId,
+      status,
+      position_seconds: positionSeconds,
+      started_at: status === "playing" ? new Date(sentAt + clockOffset.current).toISOString() : null,
+    });
+    const audio = audioRef.current;
+    if (audio && trackId === previous.track_id) {
+      audio.currentTime = positionSeconds;
+      if (status === "playing") void audio.play().catch(() => undefined);
+      else audio.pause();
+    }
     setPending(true);
     try {
       const response = await fetch("/api/rooms/playback", {
@@ -218,14 +290,16 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       });
       const result = await response.json();
       if (!response.ok) {
+        if (lastCommandAt.current === sentAt) setState(previous);
         setNotice(result.error || "Playback command failed.");
         return;
       }
-      setState(result.state);
-      if (status === "playing") void audioRef.current?.play().catch(() => undefined);
-      else audioRef.current?.pause();
-      setNotice(status === "playing" ? "Playback started for the room." : "Playback paused for the room.");
+      if (lastCommandAt.current === sentAt) {
+        setState(result.state);
+        lastCommandAt.current = Date.now() - 1500;
+      }
     } catch {
+      if (lastCommandAt.current === sentAt) setState(previous);
       setNotice("Playback service is temporarily unavailable.");
     } finally {
       setPending(false);
@@ -268,6 +342,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   }
 
   async function advanceTrack() {
+    if (advancing.current) return;
+    advancing.current = true;
+    window.setTimeout(() => { advancing.current = false; }, 1500);
     if (!activeTrack || tracks.length < 2) {
       if (state?.track_id) await setPlayback("paused", state.track_id, activeTrack?.durationSeconds ?? 0);
       return;
@@ -324,6 +401,23 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       setReordering(false);
     }
   }
+
+  useEffect(() => {
+    if (!isHost) return;
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const now = audioRef.current?.currentTime ?? 0;
+      if (event.code === "Space") { event.preventDefault(); void setPlayback(state?.status === "playing" ? "paused" : "playing"); }
+      else if (event.code === "ArrowRight") { event.preventDefault(); void seekTo(now + 15); }
+      else if (event.code === "ArrowLeft") { event.preventDefault(); void seekTo(now - 15); }
+      else if (event.key === "n" || event.key === "N") void advanceTrack();
+      else if (event.key === "p" || event.key === "P") void previousTrack();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const hue = hashString(roomTitle) % 360;
   const isPlaying = state?.status === "playing";
@@ -396,6 +490,11 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               <div className="rm-controls">
                 <span className="rm-time">{formatTime(scrub ?? currentTime)} / {formatTime(trackLength)}</span>
                 <div className="row">
+                  {activeTrack && !isHost && (
+                    <button className={`rm-pill ghost ${synced ? "" : "warn"}`} type="button" onClick={() => syncAudio(true)}>
+                      {synced ? "● In sync" : "↻ Resync to live"}
+                    </button>
+                  )}
                   {activeTrack && (
                     <button className="rm-pill" type="button" onClick={() => void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."))}>
                       ▶ Tap to listen
@@ -412,10 +511,20 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               src={activeTrack?.url || undefined}
               muted={muted}
               preload="metadata"
-              onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-              onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+              onTimeUpdate={(event) => {
+                const audio = event.currentTarget;
+                setCurrentTime(audio.currentTime);
+                // Advance just before the end so there is no dead air between songs.
+                if (isHost && isPlaying && audio.duration > 2 && audio.currentTime >= audio.duration - 0.2) void advanceTrack();
+              }}
+              onLoadedMetadata={(event) => { setDuration(event.currentTarget.duration); syncAudio(true); }}
+              onCanPlay={() => syncAudio()}
               onEnded={() => { if (isHost) void advanceTrack(); }}
+              onError={() => { urlStamps.current.clear(); setNotice("Audio stalled. Reloading the track..."); }}
             />
+            {upNextTrack?.url && upNextTrack.id !== activeTrack?.id && (
+              <audio src={upNextTrack.url} preload="auto" hidden aria-hidden="true" />
+            )}
           </div>
 
           <div className="rm-info">
@@ -474,23 +583,23 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               )}
               {video.error && <p className="small" role="alert">{video.error}</p>}
               <div className="rm-transport">
-                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void previousTrack()}>
+                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void previousTrack()}>
                   ⏮ Previous
                 </button>
-                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) - 15)}>
+                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) - 15)}>
                   ⏪ 15s
                 </button>
-                <button className="btn" type="button" disabled={pending || !activeTrack} onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}>
+                <button className="btn" type="button" disabled={!activeTrack} onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}>
                   {isPlaying ? "❚❚ Pause room" : "▶ Play for room"}
                 </button>
-                <button className="btn secondary" type="button" disabled={pending || !activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) + 15)}>
+                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) + 15)}>
                   15s ⏩
                 </button>
-                <button className="btn secondary" type="button" disabled={pending || tracks.length < 2} onClick={() => void advanceTrack()}>
+                <button className="btn secondary" type="button" disabled={tracks.length < 2} onClick={() => void advanceTrack()}>
                   Next ⏭
                 </button>
               </div>
-              <p className="small">Drag the progress bar on the stage to jump the whole room to any point in the song.</p>
+              <p className="small">Drag the progress bar on the stage to jump the whole room. Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
             </div>
           )}
 

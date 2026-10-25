@@ -697,3 +697,8 @@
   border-radius: 50%;
   background: #fff;
 }
+
+.rm-pill.warn {
+  border-color: var(--rm-orange, #ff8a3d);
+  color: #ffb27a;
+}

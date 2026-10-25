@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         isHost,
+        serverTime: Date.now(),
         room: {
           id: roomResult.data.id,
           title: roomResult.data.title,
