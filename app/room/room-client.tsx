@@ -47,6 +47,12 @@ export default function RoomClient({ displayName }: { displayName: string }) {
   const [pending, setPending] = useState(false);
 
   const activeTrack = tracks.find((track) => track.id === state?.track_id) ?? null;
+  const activeTrackIndex = tracks.findIndex((track) => track.id === state?.track_id);
+  const upNextTrack = tracks.length === 0
+    ? null
+    : activeTrackIndex >= 0
+      ? tracks[(activeTrackIndex + 1) % tracks.length]
+      : tracks[0];
 
   useEffect(() => {
     let active = true;
@@ -254,6 +260,10 @@ export default function RoomClient({ displayName }: { displayName: string }) {
             <div className="eyebrow">FAMOUS INTROVERT EXCLUSIVE</div>
             <div className="tracktitle">{activeTrack?.title ?? "Choose a track"}</div>
             <p className="muted">{activeTrack ? "Room playback follows the host." : "The host hasn't added a track to this room yet."}</p>
+            <div className="row" aria-live="polite" style={{ justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+              <span className="small">UP NEXT</span>
+              <strong>{upNextTrack?.title ?? (tracks.length === 1 ? "End of playlist" : tracks.length === 0 ? "Waiting for playlist" : "Choose a track")}</strong>
+            </div>
             <audio
               ref={audioRef}
               src={activeTrack?.url}

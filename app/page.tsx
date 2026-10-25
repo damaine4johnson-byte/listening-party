@@ -15,7 +15,7 @@ export default function Home() {
           </span>
         </Link>
         <div className={styles.navCenter}>PRIVATE LISTENING SERIES <span>·</span> EST. 2026</div>
-        <Link className={styles.artistLink} href="/signup">Artist access <span aria-hidden="true">↗</span></Link>
+        <Link className={styles.artistLink} href="/showcase">See the room <span aria-hidden="true">↗</span></Link>
       </header>
 
       <section className={styles.hero} aria-labelledby="home-title">
@@ -48,6 +48,7 @@ export default function Home() {
       <footer className={styles.footer}>
         <span>FAMOUS INTROVERT RECORDS <span className={styles.footerDot}>·</span> PRIVATE BY DESIGN</span>
         <nav aria-label="Footer">
+          <Link href="/showcase">The listening room</Link>
           <Link href="/host">Host access</Link>
           <Link href="/signup">Artist access</Link>
         </nav>

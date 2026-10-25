@@ -200,6 +200,347 @@
   writing-mode: vertical-rl;
 }
 
+.showcase {
+  padding: 1px 0 84px;
+  background: #f2f2ef;
+  color: #111111;
+}
+
+.showcaseIntro {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 78px 42px 38px;
+}
+
+.showcaseIntro .kickerDark {
+  max-width: 590px;
+}
+
+.showcaseIntro h2 {
+  margin: 22px 0 14px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 68px;
+  font-weight: 500;
+  line-height: 0.98;
+}
+
+.showcaseIntro > p {
+  max-width: 510px;
+  margin: 0;
+  color: #555550;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.roomPreview {
+  width: min(920px, calc(100% - 84px));
+  margin: 0 auto 76px;
+  overflow: hidden;
+  border: 1px solid #353535;
+  border-radius: 6px;
+  background: #101010;
+  color: #f7f7f7;
+  box-shadow: 0 22px 52px rgb(0 0 0 / 16%);
+}
+
+.roomBar {
+  min-height: 52px;
+  padding: 0 20px;
+  border-bottom: 1px solid #2d2d2d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  color: #c4c4c4;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+}
+
+.roomBrand,
+.liveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.roomLogo {
+  width: 25px;
+  height: 25px;
+}
+
+.liveStatus {
+  color: #ff5366;
+}
+
+.liveStatus i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.roomBody {
+  padding: 26px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 30px;
+}
+
+.albumArt {
+  min-height: 300px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-image: linear-gradient(180deg, rgb(0 0 0 / 14%), rgb(0 0 0 / 74%)), url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1000&q=85");
+  background-position: center;
+  background-size: cover;
+  color: #ffffff;
+}
+
+.albumEyebrow,
+.albumCaption {
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+
+.albumTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 40px;
+  line-height: 0.94;
+}
+
+.roomDetails {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.roomMeta,
+.trackTime {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: #979797;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.roomDetails h3 {
+  margin: 18px 0 4px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.roomDetails > p {
+  margin: 0;
+  color: #a5a5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.trackProgress {
+  height: 2px;
+  margin: 29px 0 9px;
+  background: #454545;
+}
+
+.trackProgress span {
+  display: block;
+  width: 52%;
+  height: 100%;
+  background: #e21b32;
+}
+
+.trackTime {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.roomPeople {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid #333333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.roomPeople > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.listenerCount {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+}
+
+.roomPeople > div:first-child > span:last-child {
+  color: #9b9b9b;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.listenerMarks {
+  display: flex;
+  padding-left: 7px;
+}
+
+.listenerMarks i {
+  width: 27px;
+  height: 27px;
+  margin-left: -7px;
+  border: 1px solid #101010;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ddd8cf;
+  color: #1b1b1b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.listenerMarks i:nth-child(2) { background: #a43a42; color: #ffffff; }
+.listenerMarks i:nth-child(3) { background: #c9c3b6; }
+.listenerMarks i:nth-child(4) { background: #303030; color: #ffffff; }
+
+.roomMessage {
+  margin-top: 17px;
+  padding: 12px 13px;
+  background: #1b1b1b;
+  color: #d4d4d4;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.roomMessage span {
+  margin-right: 7px;
+  color: #ff5366;
+  font-weight: 750;
+}
+
+.roomPlayer {
+  min-height: 52px;
+  padding: 0 26px;
+  border-top: 1px solid #2d2d2d;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
+.playMark {
+  color: #f5f5f5;
+  font-size: 13px;
+}
+
+.waveform {
+  position: relative;
+  height: 18px;
+  flex: 1;
+  background: repeating-linear-gradient(90deg, #e21b32 0 2px, transparent 2px 5px);
+  mask-image: linear-gradient(180deg, transparent, #000 15% 85%, transparent);
+}
+
+.waveform i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 52%;
+  width: 1px;
+  background: #ffffff;
+}
+
+.playerTime {
+  color: #a3a3a3;
+  font-size: 9px;
+}
+
+.showcaseSteps {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0 42px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px;
+}
+
+.showcaseSteps article {
+  padding-top: 17px;
+  border-top: 1px solid #b8b8b1;
+}
+
+.showcaseSteps article > span {
+  color: #c51c30;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.showcaseSteps h3 {
+  margin: 13px 0 7px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.showcaseSteps p {
+  max-width: 310px;
+  margin: 0;
+  color: #5d5d58;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.showcaseCta {
+  width: min(1180px, 100%);
+  margin: 70px auto 0;
+  padding: 32px 42px 0;
+  border-top: 1px solid #b8b8b1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.showcaseCta > div > span {
+  color: #c51c30;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.showcaseCta h2 {
+  margin: 9px 0 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.page .showcaseCtaLink {
+  min-height: 46px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--red);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
 .entry {
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -340,6 +681,68 @@
 
   .heroIndex {
     right: 16px;
+  }
+
+  .showcase {
+    padding-bottom: 56px;
+  }
+
+  .showcaseIntro {
+    padding: 54px 22px 28px;
+  }
+
+  .showcaseIntro h2 {
+    font-size: 49px;
+  }
+
+  .roomPreview {
+    width: calc(100% - 32px);
+    margin-bottom: 48px;
+  }
+
+  .roomBar {
+    min-height: 48px;
+    padding: 0 13px;
+    font-size: 8px;
+  }
+
+  .roomBody {
+    padding: 14px;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .albumArt {
+    min-height: 250px;
+  }
+
+  .roomDetails {
+    padding: 3px 4px 7px;
+  }
+
+  .roomDetails h3 {
+    font-size: 31px;
+  }
+
+  .roomPlayer {
+    padding: 0 16px;
+  }
+
+  .showcaseSteps {
+    padding: 0 22px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .showcaseSteps article {
+    padding-top: 14px;
+  }
+
+  .showcaseCta {
+    margin-top: 48px;
+    padding: 25px 22px 0;
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .entry {

@@ -12,7 +12,7 @@ export type HostSession = {
 };
 
 function sessionSignature(payload: string) {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!secret) throw new Error("Supabase server credentials are not configured.");
   return createHmac("sha256", secret).update(`host-session:${payload}`).digest("base64url");
 }
