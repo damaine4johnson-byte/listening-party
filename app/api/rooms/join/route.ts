@@ -4,7 +4,7 @@ import { createRoomSessionToken, ROOM_SESSION_COOKIE, ROOM_SESSION_MAX_AGE } fro
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 
 function getSupabaseHost() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const url = process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   if (!url) return "missing";
   try {
     return new URL(url).hostname;
