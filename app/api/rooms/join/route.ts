@@ -13,6 +13,27 @@ function getSupabaseHost() {
   }
 }
 
+function getSafeErrorDetails(error: unknown) {
+  if (!error || typeof error !== "object") return { code: "unknown" };
+  const value = error as {
+    code?: unknown;
+    message?: unknown;
+    cause?: { code?: unknown };
+  };
+  const message = typeof value.message === "string"
+    ? value.message
+      .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, "[redacted]")
+      .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[redacted]")
+      .slice(0, 180)
+    : "unknown";
+
+  return {
+    code: typeof value.code === "string" ? value.code : "unknown",
+    causeCode: typeof value.cause?.code === "string" ? value.cause.code : undefined,
+    message,
+  };
+}
+
 export async function POST(request: NextRequest) {
   let input: unknown;
   try {
@@ -42,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Room join room lookup failed", {
-        code: error.code || "unknown",
+        ...getSafeErrorDetails(error),
         supabaseHost: getSupabaseHost(),
       });
       return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
