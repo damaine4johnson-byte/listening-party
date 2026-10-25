@@ -38,18 +38,15 @@ npm run dev
 ## 2. Environment variables
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase publishable/anon key
-- `SUPABASE_SERVICE_ROLE_KEY`: required server-only secret for room API routes; never expose it in browser code
+- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`): required server-only secret for room API routes; never expose it in browser code
 - `HOST_USERNAME`: username for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
 - `HOST_PASSWORD`: long random password for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
-- `HOST_GOOGLE_EMAILS`: optional comma-separated exact Google account email allowlist for admin host access; artist signup is self-serve
-- `ADMIN_USERNAME`: developer admin username, stored server-side
-- `ADMIN_PASSWORD`: strong, unique developer admin password, stored server-side; never use a `NEXT_PUBLIC_` prefix
-- `ADMIN_GOOGLE_EMAILS`: optional comma-separated exact developer Google email allowlist for `/admin`; keep this separate from artist and host accounts
+- `HOST_GOOGLE_EMAILS`: optional comma-separated exact Google account email allowlist for host console access; artist signup is self-serve
 
 When deployed through the Vercel Supabase integration, the project also accepts its `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SECRET_KEY` variables. The server secret is only used server-side; the URL and anon key are mapped for the browser client.
 
 ## 3. Host profile and room setup
-Set a new, unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env.local` and in the Vercel environment. Do not reuse credentials shared in chat or used elsewhere. Alternatively, configure Google OAuth and set `ADMIN_GOOGLE_EMAILS` to the exact developer accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, allow `http://localhost:3001/signup/callback`, `http://localhost:3001/host/callback`, `http://localhost:3001/admin/callback`, and corresponding deployed URLs. The admin console uses a separate two-hour HTTP-only session. Apply rate limiting to `/api/admin/session` before public production use.
+Configure host sign-in with a strong, unique `HOST_USERNAME` and `HOST_PASSWORD`, or configure Google OAuth and set `HOST_GOOGLE_EMAILS` to the exact allowed host accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, allow `http://localhost:3001/signup/callback`, `http://localhost:3001/host/callback`, and corresponding deployed URLs.
 
 Open **Profile setup** from the host console to set the public display name, bio, and HTTPS avatar URL shown to listeners, plus a private contact email. The Google email or configured username is shown as the account identity. Contact email and sign-in identity are only returned by authenticated host APIs; room guests receive only display name, bio, and avatar URL.
 
@@ -69,8 +66,26 @@ No billing provider or prices are configured yet. Selecting a paid tier records 
 ## 5. Hosting
 Deploy the Next.js app to Vercel or another Node-compatible host. Add the same environment variables in the hosting dashboard. Do not commit `.env.local`.
 
-## 6. Developer overview and settings
-Open `/admin` to review aggregate platform counts, manage artist access, manually change plan status, configure the free-tier house ad, and choose the default status for new rooms. Suspended artist accounts are blocked from host sign-in and host-only operations. Manual plan activation does not collect payment; connect billing before using it as a paid subscription workflow.
+## 6. Platform management through Supabase
+There is no in-app developer admin console. Use the Supabase SQL Editor for platform settings and artist access; these tables remain server-only under row-level security. The legacy `supabase/developer_admin.sql` migration creates platform tables still used by the app.
+
+Inspect host accounts and suspend or restore access with `account_status`:
+
+```sql
+select host_id, account_identity, account_status from public.host_accounts;
+update public.host_accounts set account_status = 'suspended' where host_id = '<host-id>';
+update public.host_accounts set account_status = 'active' where host_id = '<host-id>';
+```
+
+Configure defaults for new rooms and the free-tier house promotion:
+
+```sql
+update public.platform_settings
+set new_room_status = 'scheduled', free_tier_ads_enabled = true
+where setting_key = 'global';
+```
+
+Artist plan and subscription status can be changed in `public.host_profiles`. Manual plan activation does not collect payment; connect billing before using it as a paid subscription workflow.
 
 ## 7. Synchronization model
 The host updates one `room_state` row with:
@@ -88,7 +103,7 @@ Listeners calculate the expected playhead from the shared timestamp and gently s
 - Ensure only the assigned host can update playback state.
 - Ensure chat writes validate room membership and rate-limit messages.
 - Keep the service-role key server-only.
-- Protect the shared host-password endpoint with rate limiting and rotate the password if exposed.
+- Protect host sign-in endpoints with rate limiting and rotate credentials if exposed.
 - Add CAPTCHA or throttling to invite validation and guest joining.
 - Limit uploads by file type, size, and room ownership.
 - Use expiring/revocable invitations and rotate leaked codes.
@@ -105,4 +120,4 @@ Listeners calculate the expected playhead from the shared timestamp and gently s
 6. Only then upload masters cleared for preview.
 
 ## Current scaffold status
-This starter contains invite-verified rooms, private track upload/playback, host-authorized synchronized playback, live chat and reactions, self-serve Google artist signup, plan selection, active-listener caps, host-owned profiles, and a developer overview/settings console. Billing, third-party ad serving, invite throttling/revocation, and production-grade host identity remain incomplete.
+This starter contains invite-verified rooms, private track upload/playback, host-authorized synchronized playback, live chat and reactions, self-serve Google artist signup, plan selection, active-listener caps, host-owned profiles, and Supabase-managed platform settings. Billing, third-party ad serving, invite throttling/revocation, and production-grade host identity remain incomplete.
