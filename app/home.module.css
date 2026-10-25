@@ -1,0 +1,362 @@
+.page {
+  --ink: #f6f6f6;
+  --paper: #080808;
+  --red: #e21b32;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Avenir Next", Avenir, sans-serif;
+}
+
+.nav {
+  width: min(1360px, 100%);
+  min-height: 82px;
+  margin: 0 auto;
+  padding: 0 42px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 22px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  width: fit-content;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.logoImage {
+  width: 38px;
+  height: 38px;
+}
+
+.brandText {
+  display: grid;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.brandText span:last-child {
+  color: #a6a6a6;
+  font-size: 9px;
+}
+
+.navCenter,
+.kicker,
+.kickerDark,
+.heroFoot > span,
+.footer {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+
+.navCenter {
+  color: #a6a6a6;
+}
+
+.navCenter span {
+  padding: 0 5px;
+  color: var(--red);
+}
+
+.artistLink {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.artistLink span {
+  color: var(--red);
+  font-size: 17px;
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  min-height: min(690px, 76vh);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #080808;
+  color: #ffffff;
+}
+
+.heroPhoto,
+.heroShade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.heroPhoto {
+  background-image: url("https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=2200&q=88");
+  background-position: center 52%;
+  background-size: cover;
+  filter: grayscale(1) contrast(1.12);
+  transform: scale(1.015);
+  animation: revealPhoto 900ms ease-out both;
+}
+
+.heroShade {
+  background: linear-gradient(115deg, rgb(173 0 25 / 42%) 0%, rgb(35 0 5 / 12%) 54%, rgb(0 0 0 / 64%) 100%), linear-gradient(90deg, rgb(0 0 0 / 82%) 0%, rgb(10 5 6 / 35%) 48%, transparent 82%), linear-gradient(0deg, rgb(0 0 0 / 70%), transparent 42%);
+}
+
+.heroContent {
+  width: min(1276px, 100%);
+  margin: 0 auto;
+  padding: 72px 78px 58px;
+  animation: riseIn 700ms ease-out both;
+}
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ff4056;
+}
+
+.kicker > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 18px rgb(226 27 50 / 70%);
+}
+
+.hero h1 {
+  max-width: 780px;
+  margin: 25px 0 17px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 112px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.88;
+}
+
+.period {
+  color: var(--red);
+}
+
+.heroContent > p {
+  max-width: 430px;
+  margin: 0;
+  color: rgb(255 255 255 / 82%);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.heroRule {
+  width: min(490px, 100%);
+  height: 1px;
+  margin: 56px 0 18px;
+  background: rgb(255 255 255 / 34%);
+}
+
+.heroFoot {
+  width: min(490px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.heroFoot > span {
+  color: rgb(255 255 255 / 70%);
+}
+
+.heroFoot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #ff4056;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.heroFoot a span {
+  font-size: 18px;
+}
+
+.heroIndex {
+  position: absolute;
+  right: 32px;
+  bottom: 30px;
+  color: rgb(255 255 255 / 70%);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  writing-mode: vertical-rl;
+}
+
+.entry {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 68px 42px 76px;
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  align-items: start;
+  gap: 68px;
+}
+
+.kickerDark {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: var(--red);
+}
+
+.kickerDark span {
+  color: #898b82;
+}
+
+.entryHeading h2 {
+  margin: 13px 0 9px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.entryHeading p {
+  margin: 0;
+  color: #b6b6b6;
+  font-size: 14px;
+}
+
+.entryForm {
+  border-left: 1px solid #373737;
+  padding-left: 44px;
+}
+
+.entryForm :global(.field) {
+  margin: 0 0 16px;
+}
+
+.entryForm :global(.field label) {
+  color: #dedede;
+}
+
+.entryForm :global(.field input) {
+  min-height: 48px;
+  border: 1px solid #4a4a4a;
+  border-radius: 0;
+  background: #141414;
+  color: #ffffff;
+}
+
+.entryForm :global(.btn) {
+  min-height: 48px;
+  border-radius: 0;
+  background: var(--red);
+  color: #ffffff;
+}
+
+.footer {
+  min-height: 62px;
+  padding: 20px 42px;
+  border-top: 1px solid #303030;
+  background: #111111;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  color: #b9b9b9;
+  font-size: 8px;
+}
+
+.footer nav {
+  display: flex;
+  gap: 22px;
+}
+
+.footer a {
+  color: #ffffff;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes revealPhoto {
+  from { opacity: 0.55; transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1.015); }
+}
+
+@media (max-width: 760px) {
+  .nav {
+    min-height: 70px;
+    padding: 0 20px;
+    grid-template-columns: 1fr auto;
+  }
+
+  .navCenter {
+    display: none;
+  }
+
+  .hero {
+    min-height: 570px;
+  }
+
+  .heroPhoto {
+    background-position: 58% center;
+  }
+
+  .heroShade {
+    background: linear-gradient(90deg, rgb(0 0 0 / 84%), rgb(17 3 5 / 30%)), linear-gradient(0deg, rgb(0 0 0 / 75%), transparent 55%);
+  }
+
+  .heroContent {
+    padding: 56px 24px 44px;
+  }
+
+  .hero h1 {
+    font-size: 62px;
+  }
+
+  .entryHeading h2 {
+    font-size: 40px;
+  }
+
+  .heroRule {
+    margin-top: 44px;
+  }
+
+  .heroIndex {
+    right: 16px;
+  }
+
+  .entry {
+    padding: 45px 22px 56px;
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .entryForm {
+    border-left: 0;
+    border-top: 1px solid #373737;
+    padding: 26px 0 0;
+  }
+
+  .footer {
+    padding: 18px 22px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

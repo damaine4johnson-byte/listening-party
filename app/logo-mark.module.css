@@ -1,0 +1,10 @@
+.logo {
+  display: block;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  object-fit: contain;
+  background: #000;
+  border: 1px solid #303030;
+  border-radius: 5px;
+}

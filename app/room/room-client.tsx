@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import LogoMark from "../logo-mark";
 
 type RoomState = {
   room_id: string;
@@ -216,7 +217,7 @@ export default function RoomClient({ displayName }: { displayName: string }) {
     <main className="wrap">
       <header className="nav">
         <Link href="/" className="brand" style={{ textDecoration: "none" }}>
-          <div className="mark">FI</div>
+          <LogoMark />
           <div><div>FAMOUS INTROVERT</div><div className="small">LISTENING ROOMS</div></div>
         </Link>
         <span className="tag">INVITE-ONLY ROOM</span>

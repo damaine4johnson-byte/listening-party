@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import HostDashboard from "./host-dashboard";
 import HostLogin from "./host-login";
+import LogoMark from "../logo-mark";
 import { HOST_SESSION_COOKIE } from "../../lib/host-session";
 import { readActiveHostSession } from "../../lib/host-profile";
 
@@ -15,7 +16,7 @@ export default async function HostPage() {
     <main className="wrap">
       <header className="nav">
         <Link href="/" className="brand" style={{ textDecoration: "none" }}>
-          <div className="mark">FI</div>
+          <LogoMark />
           <div><div>FAMOUS INTROVERT</div><div className="small">LISTENING ROOMS</div></div>
         </Link>
         <span className="tag">HOST CONSOLE</span>

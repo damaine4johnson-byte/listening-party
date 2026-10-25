@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import AdminDashboard from "./admin-dashboard";
 import AdminLogin from "./admin-login";
+import LogoMark from "../logo-mark";
 import { ADMIN_SESSION_COOKIE, readAdminSession } from "../../lib/admin-session";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function AdminPage() {
   return (
     <main className="wrap">
       <header className="nav">
-        <div className="brand"><div className="mark">FI</div><div><div>FAMOUS INTROVERT</div><div className="small">DEVELOPER ADMIN</div></div></div>
+        <div className="brand"><LogoMark /><div><div>FAMOUS INTROVERT</div><div className="small">DEVELOPER ADMIN</div></div></div>
         <span className="tag">RESTRICTED</span>
       </header>
       <section className="hero">

@@ -1,12 +1,57 @@
 import Link from "next/link";
 import JoinForm from "./join-form";
+import LogoMark from "./logo-mark";
+import styles from "./home.module.css";
+
 export default function Home() {
-  return <main className="wrap">
-    <header className="nav"><div className="brand"><div className="mark">FI</div><div><div>FAMOUS INTROVERT</div><div className="small">LISTENING ROOMS</div></div></div><span className="tag">PRIVATE FIRST LISTENS</span></header>
-    <section className="hero"><div className="eyebrow">A new way to hear what's next</div><h1>Before the world hears it.</h1><p>Exclusive listening experiences from Famous Introvert Records. Join a room, hear new music in sync, and be part of the first reaction.</p><span className="tag">Invitation required · Plans up to 10,000 listeners</span></section>
-    <section className="grid">
-      <div className="panel"><h2>Enter a listening room</h2><p className="muted">Use the invitation code shared by the host. You can join as a guest with a display name.</p><JoinForm/></div>
-      <aside className="panel"><div className="eyebrow">Made for the fans</div><h2>Hear it together.</h2><p className="muted">Host-controlled playback, real-time chat, and a private room built for music previews.</p><div className="divider"/><p className="small">This is an MVP preview. Room access, secure invitations, and track delivery must be configured before using real unreleased masters.</p></aside>
-    </section><footer className="footer"><Link className="btn secondary" href="/signup">Sign up as an artist</Link> · <Link href="/host">Host access</Link> · © Famous Introvert Records</footer>
-  </main>
+  return (
+    <main className={styles.page}>
+      <header className={styles.nav}>
+        <Link href="/" className={styles.brand} aria-label="Famous Introvert Listening Rooms home">
+          <LogoMark className={styles.logoImage} />
+          <span className={styles.brandText}>
+            <span>FAMOUS INTROVERT</span>
+            <span>LISTENING ROOMS</span>
+          </span>
+        </Link>
+        <div className={styles.navCenter}>PRIVATE LISTENING SERIES <span>·</span> EST. 2026</div>
+        <Link className={styles.artistLink} href="/signup">Artist access <span aria-hidden="true">↗</span></Link>
+      </header>
+
+      <section className={styles.hero} aria-labelledby="home-title">
+        <div className={styles.heroPhoto} role="img" aria-label="A recording studio prepared for a private first listen" />
+        <div className={styles.heroShade} />
+        <div className={styles.heroContent}>
+          <div className={styles.kicker}><span /> PRIVATE FIRST LISTENS</div>
+          <h1 id="home-title">Listen<br />Party</h1>
+          <p>Your private first listen, shared in real time.</p>
+          <div className={styles.heroRule} />
+          <div className={styles.heroFoot}>
+            <span>RECORDS / LISTENING ROOMS</span>
+            <a href="#enter-room">Enter a room <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+        <div className={styles.heroIndex} aria-hidden="true">FI—001</div>
+      </section>
+
+      <section className={styles.entry} id="enter-room" aria-labelledby="entry-title">
+        <div className={styles.entryHeading}>
+          <div className={styles.kickerDark}>LISTENER ACCESS <span>01 / 02</span></div>
+          <h2 id="entry-title">Step inside.</h2>
+          <p>Your invitation is the key.</p>
+        </div>
+        <div className={styles.entryForm}>
+          <JoinForm />
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <span>FAMOUS INTROVERT RECORDS <span className={styles.footerDot}>·</span> PRIVATE BY DESIGN</span>
+        <nav aria-label="Footer">
+          <Link href="/host">Host access</Link>
+          <Link href="/signup">Artist access</Link>
+        </nav>
+      </footer>
+    </main>
+  );
 }

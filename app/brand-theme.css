@@ -1,0 +1,260 @@
+:root {
+  color-scheme: dark;
+  --bg: #090909;
+  --panel: #121212;
+  --line: #333333;
+  --muted: #b6b6b6;
+  --red: #e21b32;
+  --white: #f7f7f7;
+}
+
+body {
+  background: #090909;
+  color: var(--white);
+  font-family: "Avenir Next", Avenir, Arial, sans-serif;
+}
+
+a:not(.btn) {
+  color: #ff5265;
+}
+
+.wrap {
+  max-width: 1180px;
+}
+
+.nav {
+  border-color: #333333;
+}
+
+.nav .brand {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.brand .small,
+.small {
+  color: #b8b8b8;
+}
+
+.nav .tag,
+.tag {
+  border: 1px solid #6f2029;
+  border-radius: 3px;
+  background: #160b0d;
+  color: #ff7381;
+}
+
+.eyebrow {
+  color: #ff5265;
+}
+
+.wrap > .hero h1 {
+  color: #ffffff;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 52px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.02;
+}
+
+.wrap > .hero p,
+.muted {
+  color: #b8b8b8;
+}
+
+.grid {
+  gap: 16px;
+}
+
+.panel {
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #121212;
+  color: #f7f7f7;
+}
+
+.panel h2,
+.panel strong {
+  color: #ffffff;
+}
+
+.field label {
+  color: #dedede;
+}
+
+.field input,
+.field textarea,
+.field select {
+  border: 1px solid #444444;
+  border-radius: 3px;
+  background: #090909;
+  color: #ffffff;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #8e8e8e;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--red);
+  outline: 2px solid rgb(226 27 50 / 28%);
+  outline-offset: 1px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--red);
+}
+
+.btn {
+  border-radius: 3px;
+  background: var(--red);
+  color: #ffffff;
+}
+
+.btn.secondary {
+  border: 1px solid #444444;
+  border-radius: 3px;
+  background: #181818;
+  color: #ffffff;
+}
+
+.btn.secondary:hover:not(:disabled) {
+  border-color: var(--red);
+}
+
+.btn:hover:not(:disabled) {
+  background: #c8172d;
+}
+
+.player {
+  border: 1px solid #333333;
+  border-radius: 5px;
+  background: #090909;
+}
+
+.message {
+  border: 1px solid #303030;
+  border-radius: 4px;
+  background: #171717;
+  color: #f4f4f4;
+}
+
+.message strong,
+.status {
+  color: #ff5265;
+}
+
+.divider {
+  background: #333333;
+}
+
+.footer {
+  color: #aaa;
+}
+
+.footer a {
+  color: #ff5265;
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    padding: 20px 16px 44px;
+  }
+
+  .nav {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .wrap > .hero h1 {
+    font-size: 40px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .wrap {
+    padding: 16px 14px 36px;
+  }
+
+  .nav {
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .nav .brand {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .nav .tag {
+    max-width: 100%;
+    padding: 6px 8px;
+    font-size: 10px;
+    white-space: normal;
+  }
+
+  .wrap > .hero {
+    max-width: none;
+    padding: 34px 0 24px;
+  }
+
+  .wrap > .hero h1 {
+    font-size: 38px;
+    line-height: 1.06;
+    overflow-wrap: anywhere;
+  }
+
+  .panel {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .row {
+    gap: 8px;
+  }
+
+  .row > .field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .row > .btn {
+    min-height: 44px;
+  }
+
+  .field input,
+  .field textarea,
+  .field select {
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .chatlog {
+    max-width: 100%;
+    min-height: 180px;
+    height: min(40vh, 300px);
+  }
+
+  .message,
+  .small,
+  .panel strong {
+    overflow-wrap: anywhere;
+  }
+
+  .player audio {
+    display: block;
+    max-width: 100%;
+  }
+
+  .footer {
+    text-align: left;
+  }
+}

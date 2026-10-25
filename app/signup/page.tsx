@@ -1,12 +1,13 @@
 import Link from "next/link";
 import ArtistSignupForm from "./artist-signup-form";
+import LogoMark from "../logo-mark";
 
 export default function ArtistSignupPage() {
   return (
     <main className="wrap">
       <header className="nav">
         <Link href="/" className="brand" style={{ textDecoration: "none" }}>
-          <div className="mark">FI</div>
+          <LogoMark />
           <div><div>FAMOUS INTROVERT</div><div className="small">LISTENING ROOMS</div></div>
         </Link>
         <span className="tag">ARTIST SIGN UP</span>
