@@ -31,6 +31,7 @@ export default function HostProfileForm() {
   const [account, setAccount] = useState<HostAccount | null>(null);
   const [notice, setNotice] = useState("Loading profile...");
   const [pending, setPending] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +52,36 @@ export default function HostProfileForm() {
 
   function update<K extends keyof HostProfile>(key: K, value: HostProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  async function chooseAvatar(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    setNotice("");
+    try {
+      const bitmap = await createImageBitmap(file);
+      const size = 512;
+      const scale = Math.max(size / bitmap.width, size / bitmap.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not process that image.");
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(bitmap, (size - bitmap.width * scale) / 2, (size - bitmap.height * scale) / 2, bitmap.width * scale, bitmap.height * scale);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+      if (!blob) throw new Error("Could not process that image.");
+      const response = await fetch("/api/host/profile/avatar", { method: "POST", body: blob });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not upload picture.");
+      update("avatar_url", result.url);
+      setNotice("Picture uploaded. Save your profile to keep it.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not upload picture.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -106,15 +137,15 @@ export default function HostProfileForm() {
             />
           </div>
           <div className="field">
-            <label htmlFor="avatar-url">Avatar image URL</label>
+            <label htmlFor="avatar-file">Profile picture</label>
             <input
-              id="avatar-url"
-              type="url"
-              inputMode="url"
-              placeholder="https://example.com/avatar.jpg"
-              value={profile.avatar_url}
-              onChange={(event) => update("avatar_url", event.target.value)}
+              id="avatar-file"
+              type="file"
+              accept="image/*"
+              disabled={uploading}
+              onChange={(event) => { void chooseAvatar(event.target.files?.[0]); event.target.value = ""; }}
             />
+            <span className="small">{uploading ? "Uploading..." : "Pick a photo from your gallery or device. Remember to save your profile afterwards."}</span>
           </div>
           {profile.avatar_url && (
             <div className="row">
@@ -125,7 +156,7 @@ export default function HostProfileForm() {
                 height={72}
                 style={{ width: 72, height: 72, objectFit: "cover", borderRadius: "50%" }}
               />
-              <span className="small">Preview</span>
+              <button className="btn secondary" type="button" onClick={() => update("avatar_url", "")}>Remove</button>
             </div>
           )}
         </section>
