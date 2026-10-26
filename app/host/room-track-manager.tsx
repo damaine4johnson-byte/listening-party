@@ -2,6 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { compressToMp3 } from "../../lib/compress-audio";
+
+const COMPRESS_ABOVE_BYTES = 49 * 1024 * 1024;
 
 type Track = { id: string; title: string; duration_seconds: number | null; track_order: number };
 type UploadTrack = { key: string; file: File; title: string };
@@ -44,7 +47,20 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
     setPending(true);
     let uploadedCount = 0;
     try {
-      for (const [index, track] of uploadTracks.entries()) {
+      for (const [index, original] of uploadTracks.entries()) {
+        let track = original;
+        if (original.file.size > COMPRESS_ABOVE_BYTES) {
+          const label = `track ${index + 1} of ${uploadTracks.length}: ${original.title}`;
+          setNotice(`Compressing ${label} (large file, this can take a minute)...`);
+          try {
+            const file = await compressToMp3(original.file, (fraction) =>
+              setNotice(`Compressing ${label} - ${Math.round(fraction * 100)}%`));
+            track = { ...original, file };
+          } catch {
+            throw new Error(`Could not compress ${original.title}. Try exporting it as MP3 or FLAC under 50 MB.`);
+          }
+          if (track.file.size > COMPRESS_ABOVE_BYTES) throw new Error(`${original.title} is still over 50 MB after compression. Please trim or split it.`);
+        }
         setNotice(`Uploading track ${index + 1} of ${uploadTracks.length}: ${track.title}`);
         const signedResponse = await fetch("/api/host/rooms/tracks/upload-url", {
           method: "POST",
@@ -147,7 +163,7 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
       ))}
       <form onSubmit={addTrack}>
         <div className="field">
-          <label htmlFor={`track-files-${roomId}`}>Playlist audio files (WAV, MP3, FLAC and more, up to 200 MB each)</label>
+          <label htmlFor={`track-files-${roomId}`}>Playlist audio files (WAV, MP3, FLAC and more; files over 50 MB are auto-compressed to MP3)</label>
           <input
             id={`track-files-${roomId}`}
             type="file"
