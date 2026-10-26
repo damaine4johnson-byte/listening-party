@@ -840,3 +840,11 @@
 .rm-vp-rank.top1 { background: #f5c542; color: #111; }
 .rm-vp-rank.top2 { background: #c9d1d9; color: #111; }
 .rm-vp-rank.top3 { background: #d08a4e; color: #111; }
+
+.rm-tip-alerts { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 6; display: grid; gap: 8px; width: min(92%, 420px); pointer-events: none; }
+.rm-tip-alert { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: linear-gradient(135deg, rgb(255 61 139 / 92%), rgb(124 77 255 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 45%); font-size: 14px; animation: rm-tip-in .45s cubic-bezier(.2,1.4,.4,1); }
+.rm-tip-alert b { font-size: 16px; }
+.rm-tip-alert em { font-style: normal; font-weight: 700; }
+.rm-tip-icon { font-size: 22px; }
+@keyframes rm-tip-in { from { opacity: 0; transform: translateY(-14px) scale(.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rm-tip-alert { animation: none; } }

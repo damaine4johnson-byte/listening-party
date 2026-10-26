@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const reactionSince = new Date(Date.now() - 30_000).toISOString();
-    const [roomResult, stateResult, chatResult, reactionResult, viewerResult] = await Promise.all([
+    const [roomResult, stateResult, chatResult, reactionResult, viewerResult, tipResult] = await Promise.all([
       supabase.from("rooms").select("id, title, description, status, host_id").eq("id", session.roomId).maybeSingle(),
       supabase
         .from("room_state")
@@ -53,7 +53,30 @@ export async function GET(request: NextRequest) {
         .select("member_id", { count: "exact", head: true })
         .eq("room_id", session.roomId)
         .gte("last_seen_at", new Date(Date.now() - 30_000).toISOString()),
+      supabase
+        .from("payment_orders")
+        .select("order_id, display_name, amount_cents, track_id, paid_at")
+        .eq("room_id", session.roomId)
+        .eq("kind", "tip")
+        .eq("status", "paid")
+        .gte("paid_at", new Date(Date.now() - 90_000).toISOString())
+        .order("paid_at", { ascending: false })
+        .limit(5),
     ]);
+
+    const tipRows = tipResult.data ?? [];
+    const trackIds = tipRows.map((tip) => tip.track_id).filter((id): id is string => Boolean(id));
+    const titleById = new Map<string, string>();
+    if (trackIds.length > 0) {
+      const { data: tipTracks } = await supabase.from("room_tracks").select("id, title").in("id", trackIds);
+      for (const track of tipTracks ?? []) titleById.set(track.id as string, track.title as string);
+    }
+    const tipAlerts = tipRows.reverse().map((tip) => ({
+      id: tip.order_id as string,
+      name: (tip.display_name as string | null) || "A listener",
+      amountCents: tip.amount_cents as number,
+      song: tip.track_id ? titleById.get(tip.track_id as string) ?? null : null,
+    }));
 
     if (roomResult.error || stateResult.error || chatResult.error || reactionResult.error || !roomResult.data) {
       return NextResponse.json({ error: "Could not load room data." }, { status: 503 });
@@ -92,6 +115,7 @@ export async function GET(request: NextRequest) {
       {
         isHost,
         viewerCount: viewerResult.count ?? 0,
+        tipAlerts,
         serverTime: Date.now(),
         room: {
           id: roomResult.data.id,

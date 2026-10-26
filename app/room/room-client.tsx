@@ -76,6 +76,8 @@ function hashString(value: string) {
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
+  const [tipAlerts, setTipAlerts] = useState<{ id: string; name: string; amountCents: number; song: string | null }[]>([]);
+  const seenTips = useRef<Set<string> | null>(null);
   const [viewerCount, setViewerCount] = useState<number | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [viewerData, setViewerData] = useState<ViewerData | null>(null);
@@ -160,6 +162,22 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           setHouseAd(result.ad ?? null);
           setIsHost(Boolean(result.isHost));
           if (typeof result.viewerCount === "number") setViewerCount(result.viewerCount);
+          if (Array.isArray(result.tipAlerts)) {
+            const incoming = result.tipAlerts as { id: string; name: string; amountCents: number; song: string | null }[];
+            // Tips already paid when the page loads are marked seen so only new ones pop.
+            if (seenTips.current === null) {
+              seenTips.current = new Set(incoming.map((tip) => tip.id));
+            } else {
+              const seen = seenTips.current;
+              const fresh = incoming.filter((tip) => !seen.has(tip.id));
+              if (fresh.length > 0) {
+                fresh.forEach((tip) => seen.add(tip.id));
+                setTipAlerts((current) => [...current, ...fresh].slice(-3));
+                const ids = new Set(fresh.map((tip) => tip.id));
+                window.setTimeout(() => setTipAlerts((current) => current.filter((tip) => !ids.has(tip.id))), 7000);
+              }
+            }
+          }
           setNotice("Connected to the listening room.");
         }
       } catch {
@@ -598,6 +616,17 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                   <span key={i} style={{ animationDelay: `${(i % 8) * 0.12}s`, height: `${30 + ((i * 37) % 70)}%` }} />
                 ))}
               </div>
+            </div>
+            <div className="rm-tip-alerts" role="status" aria-live="polite">
+              {tipAlerts.map((tip) => (
+                <div className="rm-tip-alert" key={tip.id}>
+                  <span className="rm-tip-icon" aria-hidden="true">💸</span>
+                  <span>
+                    <strong>{tip.name}</strong> tipped <b>${(tip.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: tip.amountCents % 100 ? 2 : 0 })}</b>
+                    {tip.song && <> to boost <em>{tip.song}</em></>}
+                  </span>
+                </div>
+              ))}
             </div>
             <div className="rm-floaters" aria-hidden="true">
               {floaters.map((floater) => (
