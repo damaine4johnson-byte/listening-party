@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { useRoomVideo } from "./use-room-video";
+import RoomTrackManager from "../host/room-track-manager";
 import "./room-console.css";
 
 type RoomState = {
@@ -42,6 +43,9 @@ function hashString(value: string) {
 
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const yielded = useRef(false);
+  const tabChannel = useRef<BroadcastChannel | null>(null);
+  const tabId = useRef(Math.random().toString(36).slice(2));
   const [state, setState] = useState<RoomState | null>(null);
   const [tracks, setTracks] = useState<RoomTrack[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -194,8 +198,19 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       audio.playbackRate = 1;
     }
     setSynced(Math.abs(drift) < 1.2);
-    if (audio.paused) void audio.play().catch(() => setNotice("Tap Play to start audio in this browser."));
+    if (audio.paused && !yielded.current) void audio.play().catch(() => setNotice("Tap Play to start audio in this browser."));
   }, [state, expectedPosition]);
+
+  useEffect(() => {
+    // Two open tabs of this room would play the same song twice, so the tab that starts last wins.
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel("fi-room-audio");
+    tabChannel.current = channel;
+    channel.onmessage = (event) => {
+      if (event.data !== tabId.current) { yielded.current = true; audioRef.current?.pause(); }
+    };
+    return () => { channel.close(); tabChannel.current = null; };
+  }, []);
 
   useEffect(() => {
     syncAudio();
@@ -525,7 +540,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               src={activeTrack?.url || undefined}
               muted={muted}
               preload="metadata"
-              onPlay={() => setAudioPaused(false)}
+              onPlay={() => { yielded.current = false; setAudioPaused(false); tabChannel.current?.postMessage(tabId.current); }}
               onPause={() => setAudioPaused(true)}
               onTimeUpdate={(event) => {
                 const audio = event.currentTarget;
@@ -616,6 +631,12 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 </button>
               </div>
               <p className="small">Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
+              {state?.room_id && (
+                <details className="rm-add-songs">
+                  <summary>＋ Add songs while live</summary>
+                  <RoomTrackManager roomId={state.room_id} />
+                </details>
+              )}
             </div>
           )}
 

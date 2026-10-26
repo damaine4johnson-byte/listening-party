@@ -815,3 +815,6 @@
   margin: 0 8px;
   pointer-events: auto;
 }
+
+.rm-add-songs { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; }
+.rm-add-songs summary { cursor: pointer; font-weight: 700; }
