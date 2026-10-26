@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../lib/host-profile";
+import { getRoomCoverUrls, roomCoverPath } from "../../../../lib/room-cover";
 import { artistTierDetails, effectiveArtistTier, isArtistTier } from "../../../../lib/artist-tiers";
 import { getPlatformSettings } from "../../../../lib/platform-settings";
 import { isWipayConfigured, MAX_ENTRY_FEE_CENTS, MIN_ENTRY_FEE_CENTS } from "../../../../lib/wipay";
@@ -26,7 +27,10 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) return NextResponse.json({ error: "Could not load rooms." }, { status: 503 });
-    return NextResponse.json({ rooms: data ?? [] }, { headers: { "Cache-Control": "no-store" } });
+    const supabase = createSupabaseAdmin();
+    const covers = await getRoomCoverUrls(supabase, (data ?? []).map((room) => room.id as string));
+    const rooms = (data ?? []).map((room) => ({ ...room, coverUrl: covers.get(room.id as string) ?? null }));
+    return NextResponse.json({ rooms }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });
   }
@@ -228,6 +232,7 @@ export async function DELETE(request: NextRequest) {
 
     const paths = (tracks ?? []).map((track) => track.storage_path).filter(Boolean);
     if (paths.length) await supabase.storage.from("tracks").remove(paths);
+    await supabase.storage.from("avatars").remove([roomCoverPath(roomId)]);
     return NextResponse.json({ deleted: true });
   } catch {
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });

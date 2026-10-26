@@ -1,3 +1,4 @@
+import { getRoomCoverUrls } from "../../../../lib/room-cover";
 import { NextRequest, NextResponse } from "next/server";
 import { readRoomSessionToken, ROOM_SESSION_COOKIE } from "../../../../lib/room-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
           title: roomResult.data.title,
           description: roomResult.data.description ?? "",
           status: roomResult.data.status,
+          coverUrl: (await getRoomCoverUrls(supabase, [roomResult.data.id as string])).get(roomResult.data.id as string) ?? null,
         },
         state: stateResult.data,
         messages: (chatResult.data ?? []).reverse(),

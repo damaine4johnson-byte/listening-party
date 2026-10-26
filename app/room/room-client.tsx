@@ -96,6 +96,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [tipBusy, setTipBusy] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [roomTitle, setRoomTitle] = useState("Listening room");
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [roomDescription, setRoomDescription] = useState("");
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [showAds, setShowAds] = useState(false);
@@ -143,6 +144,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           if (active) setNotice(result.error || "Could not load room data.");
         } else if (active) {
           setRoomTitle(result.room.title);
+          setCoverUrl(result.room.coverUrl ?? null);
           setRoomDescription(result.room.description ?? "");
           if (typeof result.serverTime === "number") clockOffset.current = result.serverTime - Date.now();
           const next = result.state as RoomState | null;
@@ -600,6 +602,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       <div className="rm-layout">
         <div className="rm-main">
           <div className={`rm-stage ${video.hasVideo ? "has-video" : ""}`} style={{ ["--hue" as string]: hue }}>
+            {coverUrl && <img className="rm-cover" src={coverUrl} alt="" aria-hidden="true" />}
             <div className="rm-glow" aria-hidden="true" />
             <video ref={video.videoRef} className="rm-video" autoPlay playsInline muted aria-label="Host live video" />
             <div ref={video.audioBoxRef} hidden />

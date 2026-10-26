@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import RoomTrackManager from "./room-track-manager";
 import HostAnalytics from "./host-analytics";
+import { AvatarCropper } from "./profile/avatar-cropper";
 import "./host-console.css";
 
 type Room = {
@@ -15,6 +16,7 @@ type Room = {
   max_listeners: number;
   entry_fee_cents: number;
   created_at: string;
+  coverUrl?: string | null;
 };
 
 type PayoutStatus = {
@@ -76,6 +78,7 @@ export default function HostDashboard() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [coverCrop, setCoverCrop] = useState<{ roomId: string; file: File } | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [inviteRoomTitle, setInviteRoomTitle] = useState("");
@@ -164,6 +167,30 @@ export default function HostDashboard() {
     }
   }
 
+  async function uploadCover(roomId: string, blob: Blob) {
+    setCoverCrop(null);
+    setNotice("Uploading room picture...");
+    try {
+      const response = await fetch(`/api/host/rooms/cover?roomId=${roomId}`, { method: "POST", body: blob });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not upload picture.");
+      setRooms((current) => current.map((item) => (item.id === roomId ? { ...item, coverUrl: result.coverUrl } : item)));
+      setNotice("Room picture updated.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not upload picture.");
+    }
+  }
+
+  async function removeCover(roomId: string) {
+    try {
+      const response = await fetch(`/api/host/rooms/cover?roomId=${roomId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error();
+      setRooms((current) => current.map((item) => (item.id === roomId ? { ...item, coverUrl: null } : item)));
+    } catch {
+      setNotice("Could not remove the picture.");
+    }
+  }
+
   async function goLive(roomId: string) {
     setNotice("");
     try {
@@ -177,7 +204,7 @@ export default function HostDashboard() {
         setNotice(result.error || "Could not go live.");
         return;
       }
-      setRooms((current) => current.map((item) => (item.id === roomId ? result.room : item)));
+      setRooms((current) => current.map((item) => (item.id === roomId ? { ...item, ...result.room } : item)));
       await openRoom(roomId);
     } catch {
       setNotice("Room service is unavailable. Try again shortly.");
@@ -270,7 +297,7 @@ export default function HostDashboard() {
         setNotice(result.error || "Could not save the room.");
         return;
       }
-      setRooms((current) => current.map((item) => (item.id === roomId ? result.room : item)));
+      setRooms((current) => current.map((item) => (item.id === roomId ? { ...item, ...result.room } : item)));
       setEditingId("");
       setNotice("Room updated.");
     } catch {
@@ -483,7 +510,11 @@ export default function HostDashboard() {
           <div className="hc-rooms">
             {rooms.map((room) => (
               <article key={room.id} className="hc-room">
-                <RoomCover seed={room.slug || room.title} />
+                {room.coverUrl ? (
+                  <img className="hc-cover" src={room.coverUrl} alt={`${room.title} cover`} style={{ objectFit: "cover" }} />
+                ) : (
+                  <RoomCover seed={room.slug || room.title} />
+                )}
                 <div className="hc-room-body">
                   <div className="hc-room-head">
                     <strong>{room.title}</strong>
@@ -512,6 +543,22 @@ export default function HostDashboard() {
                     </button>
                     {room.status !== "ended" && (
                       <button className="btn secondary" type="button" onClick={() => void newInvite(room.id)}>Invite code</button>
+                    )}
+                    <label className="btn secondary" style={{ cursor: "pointer" }}>
+                      {room.coverUrl ? "Change picture" : "Add picture"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) setCoverCrop({ roomId: room.id, file });
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {room.coverUrl && (
+                      <button className="btn secondary" type="button" onClick={() => void removeCover(room.id)}>Remove picture</button>
                     )}
                     {room.status !== "live" && (
                       <button className="btn secondary" type="button" onClick={() => void deleteRoom(room)}>Delete</button>
@@ -558,6 +605,16 @@ export default function HostDashboard() {
         )}
       </section>
       </div>
+      {coverCrop && (
+        <AvatarCropper
+          file={coverCrop.file}
+          aspect={16 / 9}
+          round={false}
+          title="Crop room picture"
+          onCancel={() => setCoverCrop(null)}
+          onDone={(blob) => void uploadCover(coverCrop.roomId, blob)}
+        />
+      )}
     </div>
   );
 }
