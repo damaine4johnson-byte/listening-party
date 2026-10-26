@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ARTIST_TIERS, type ArtistTier } from "../../../lib/artist-tiers";
+import { AvatarCropper } from "./avatar-cropper";
 
 type HostProfile = {
   display_name: string;
@@ -32,6 +33,7 @@ export default function HostProfileForm() {
   const [notice, setNotice] = useState("Loading profile...");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,25 +56,11 @@ export default function HostProfileForm() {
     setProfile((current) => ({ ...current, [key]: value }));
   }
 
-  async function chooseAvatar(file?: File) {
-    if (!file) return;
+  async function uploadAvatar(blob: Blob) {
+    setCropFile(null);
     setUploading(true);
     setNotice("");
-    try {
-      const bitmap = await createImageBitmap(file);
-      const size = 512;
-      const scale = Math.max(size / bitmap.width, size / bitmap.height);
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Could not process that image.");
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(bitmap, (size - bitmap.width * scale) / 2, (size - bitmap.height * scale) / 2, bitmap.width * scale, bitmap.height * scale);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-      if (!blob) throw new Error("Could not process that image.");
-      const response = await fetch("/api/host/profile/avatar", { method: "POST", body: blob });
+    try {      const response = await fetch("/api/host/profile/avatar", { method: "POST", body: blob });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not upload picture.");
       update("avatar_url", result.url);
@@ -143,8 +131,9 @@ export default function HostProfileForm() {
               type="file"
               accept="image/*"
               disabled={uploading}
-              onChange={(event) => { void chooseAvatar(event.target.files?.[0]); event.target.value = ""; }}
+              onChange={(event) => { setCropFile(event.target.files?.[0] ?? null); event.target.value = ""; }}
             />
+            {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onDone={(blob) => void uploadAvatar(blob)} />}
             <span className="small">{uploading ? "Uploading..." : "Pick a photo from your gallery or device. Remember to save your profile afterwards."}</span>
           </div>
           {profile.avatar_url && (
