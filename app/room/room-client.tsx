@@ -16,6 +16,11 @@ type RoomState = {
   started_at: string | null;
   updated_at: string;
 };
+type ViewerData = {
+  viewers: { name: string; spentCents: number; tipCents: number; tipCount: number; rank: number | null; joinedAt: string }[];
+  recentJoins: { name: string; joinedAt: string }[];
+  totalTipCents: number;
+};
 type ChatMessage = { id: string; display_name: string; body: string; created_at: string };
 type RoomTrack = { id: string; title: string; durationSeconds: number | null; trackOrder: number; url: string };
 type HostProfile = { display_name: string; bio: string; avatar_url: string };
@@ -71,6 +76,9 @@ function hashString(value: string) {
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
+  const [viewerCount, setViewerCount] = useState<number | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [viewerData, setViewerData] = useState<ViewerData | null>(null);
   const [ended, setEnded] = useState(false);
   const [ending, setEnding] = useState(false);
   const yielded = useRef(false);
@@ -151,6 +159,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           setShowAds(Boolean(result.showAds));
           setHouseAd(result.ad ?? null);
           setIsHost(Boolean(result.isHost));
+          if (typeof result.viewerCount === "number") setViewerCount(result.viewerCount);
           setNotice("Connected to the listening room.");
         }
       } catch {
@@ -317,6 +326,21 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       setNotice("Reaction service is temporarily unavailable.");
     }
   }
+
+  useEffect(() => {
+    if (!isHost || !panelOpen) return;
+    let active = true;
+    let timer: number | undefined;
+    async function load() {
+      try {
+        const response = await fetch("/api/host/viewers", { cache: "no-store" });
+        if (response.ok && active) setViewerData(await response.json());
+      } catch { /* the next poll retries */ }
+      if (active) timer = window.setTimeout(load, 5000);
+    }
+    void load();
+    return () => { active = false; if (timer) window.clearTimeout(timer); };
+  }, [isHost, panelOpen]);
 
   async function chooseAvatar(file: File | undefined) {
     if (!file) return;
@@ -563,7 +587,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
             <div ref={video.audioBoxRef} hidden />
             <div className="rm-badges">
               <span className={`rm-live ${showLive ? "on" : ""}`}>{showLive ? "● LIVE" : "❚❚ PAUSED"}</span>
-              <span className="rm-viewers">👥 {participants} in the room</span>
+              <span className="rm-viewers">👥 {viewerCount ?? participants} in the room</span>
             </div>
             <div className="rm-art-wrap">
               <div className={`rm-art ${isPlaying ? "spin" : ""}`}>
@@ -809,7 +833,12 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         <aside className="rm-chat" aria-labelledby="live-chat-title">
           <div className="rm-chat-head">
             <h2 id="live-chat-title">Live chat</h2>
-            <span className="small">{participants} here</span>
+            <span className="small">{viewerCount ?? participants} here</span>
+            {isHost && (
+              <button className="rm-photo-btn" type="button" aria-expanded={panelOpen} onClick={() => setPanelOpen((open) => !open)}>
+                👥 Viewers
+              </button>
+            )}
             {!isHost && (
               <label className="rm-photo-btn" title="Add or change your photo">
                 📷 Photo
@@ -817,6 +846,36 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               </label>
             )}
           </div>
+          {isHost && panelOpen && (
+            <div className="rm-viewers-panel" role="region" aria-label="Current viewers">
+              <div className="rm-vp-head">
+                <strong>Viewers · {viewerData?.viewers.length ?? viewerCount ?? 0}</strong>
+                <span className="small">Tips {viewerData ? `$${(viewerData.totalTipCents / 100).toLocaleString()}` : "—"}</span>
+                <button type="button" className="rm-vp-close" aria-label="Close viewers panel" onClick={() => setPanelOpen(false)}>✕</button>
+              </div>
+              {viewerData && viewerData.recentJoins.length > 0 && (
+                <p className="small rm-vp-joins">
+                  Just joined: {viewerData.recentJoins.slice(0, 3).map((join) => join.name).join(", ")}
+                </p>
+              )}
+              {!viewerData ? <p className="muted small">Loading viewers...</p> : viewerData.viewers.length === 0 ? (
+                <p className="muted small">No listeners in the room yet.</p>
+              ) : (
+                <ol className="rm-vp-list">
+                  {viewerData.viewers.map((viewer) => (
+                    <li key={`${viewer.name}-${viewer.joinedAt}`}>
+                      <span className={`rm-vp-rank ${viewer.rank && viewer.rank <= 3 ? `top${viewer.rank}` : ""}`}>{viewer.rank ?? "–"}</span>
+                      <ChatAvatar name={viewer.name} version={avatarVersion} />
+                      <span className="rm-vp-name">{viewer.name}</span>
+                      <span className="rm-vp-spent" title={`${viewer.tipCount} tips`}>
+                        {viewer.spentCents > 0 ? `$${(viewer.spentCents / 100).toLocaleString(undefined, { minimumFractionDigits: viewer.spentCents % 100 ? 2 : 0 })}` : "$0"}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
           <div className="rm-chatlog" ref={chatLogRef} aria-live="polite">
             {messages.length === 0
               ? <p className="muted">No messages yet. Start the conversation.</p>

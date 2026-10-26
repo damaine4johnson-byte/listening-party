@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const reactionSince = new Date(Date.now() - 30_000).toISOString();
-    const [roomResult, stateResult, chatResult, reactionResult] = await Promise.all([
+    const [roomResult, stateResult, chatResult, reactionResult, viewerResult] = await Promise.all([
       supabase.from("rooms").select("id, title, description, status, host_id").eq("id", session.roomId).maybeSingle(),
       supabase
         .from("room_state")
@@ -48,6 +48,11 @@ export async function GET(request: NextRequest) {
         .gte("created_at", reactionSince)
         .order("created_at", { ascending: false })
         .limit(50),
+      supabase
+        .from("room_memberships")
+        .select("member_id", { count: "exact", head: true })
+        .eq("room_id", session.roomId)
+        .gte("last_seen_at", new Date(Date.now() - 30_000).toISOString()),
     ]);
 
     if (roomResult.error || stateResult.error || chatResult.error || reactionResult.error || !roomResult.data) {
@@ -86,6 +91,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         isHost,
+        viewerCount: viewerResult.count ?? 0,
         serverTime: Date.now(),
         room: {
           id: roomResult.data.id,
