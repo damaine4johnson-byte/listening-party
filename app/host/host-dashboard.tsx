@@ -164,6 +164,47 @@ export default function HostDashboard() {
     }
   }
 
+  async function goLive(roomId: string) {
+    setNotice("");
+    try {
+      const response = await fetch("/api/host/rooms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, status: "live" }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not go live.");
+        return;
+      }
+      setRooms((current) => current.map((item) => (item.id === roomId ? result.room : item)));
+      await openRoom(roomId);
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+    }
+  }
+
+  async function deleteRoom(room: Room) {
+    if (!window.confirm(`Delete "${room.title}" permanently? Its songs, chat, listener history and payment records for this room will be removed. This cannot be undone.`)) return;
+    setNotice("");
+    try {
+      const response = await fetch("/api/host/rooms", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: room.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not delete the room.");
+        return;
+      }
+      setRooms((current) => current.filter((item) => item.id !== room.id));
+      setNotice(`Deleted "${room.title}".`);
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+    }
+  }
+
   async function newInvite(roomId: string) {
     if (!window.confirm("Generate a new invite? The previous code for this room will stop working.")) return;
     setNotice("");
@@ -457,14 +498,23 @@ export default function HostDashboard() {
                     </span>
                   </div>
                   <div className="hc-room-actions">
-                    {room.status !== "ended" && (
+                    {room.status === "scheduled" && (
+                      <button className="btn" type="button" onClick={() => void goLive(room.id)}>● Go live</button>
+                    )}
+                    {room.status === "live" && (
                       <button className="btn" type="button" onClick={() => void openRoom(room.id)}>Open room</button>
+                    )}
+                    {room.status === "ended" && (
+                      <button className="btn" type="button" onClick={() => void goLive(room.id)}>↻ Go live again</button>
                     )}
                     <button className="btn secondary" type="button" onClick={() => (editingId === room.id ? setEditingId("") : startEdit(room))}>
                       {editingId === room.id ? "Cancel" : "Edit"}
                     </button>
                     {room.status !== "ended" && (
                       <button className="btn secondary" type="button" onClick={() => void newInvite(room.id)}>Invite code</button>
+                    )}
+                    {room.status !== "live" && (
+                      <button className="btn secondary" type="button" onClick={() => void deleteRoom(room)}>Delete</button>
                     )}
                   </div>
                   {roomInvite?.roomId === room.id && (

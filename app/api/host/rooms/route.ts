@@ -196,3 +196,40 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  if (!hasSameOrigin(request)) {
+    return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
+  }
+  const session = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
+  if (!session) return NextResponse.json({ error: "Host sign-in required." }, { status: 401 });
+
+  const input = await request.json().catch(() => null) as { roomId?: unknown } | null;
+  const roomId = typeof input?.roomId === "string" ? input.roomId : "";
+  if (!/^[0-9a-f-]{36}$/i.test(roomId)) return NextResponse.json({ error: "Choose a room." }, { status: 400 });
+
+  try {
+    const supabase = createSupabaseAdmin();
+    const { data: room, error: roomError } = await supabase
+      .from("rooms")
+      .select("id, status")
+      .eq("id", roomId)
+      .eq("host_id", session.hostId)
+      .maybeSingle();
+    if (roomError) return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
+    if (!room) return NextResponse.json({ error: "Room not found." }, { status: 404 });
+    if (room.status === "live") {
+      return NextResponse.json({ error: "End the live stream before deleting this room." }, { status: 409 });
+    }
+
+    const { data: tracks } = await supabase.from("room_tracks").select("storage_path").eq("room_id", roomId);
+    const { error } = await supabase.from("rooms").delete().eq("id", roomId).eq("host_id", session.hostId);
+    if (error) return NextResponse.json({ error: "Room could not be deleted." }, { status: 503 });
+
+    const paths = (tracks ?? []).map((track) => track.storage_path).filter(Boolean);
+    if (paths.length) await supabase.storage.from("tracks").remove(paths);
+    return NextResponse.json({ deleted: true });
+  } catch {
+    return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });
+  }
+}
