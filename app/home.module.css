@@ -66,20 +66,32 @@
   color: var(--red);
 }
 
-.artistLink {
+.authLinks {
   justify-self: end;
   display: inline-flex;
   align-items: center;
-  gap: 11px;
-  color: var(--ink);
+  gap: 10px;
+}
+
+.signIn,
+.signUp {
+  padding: 9px 18px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 750;
   text-decoration: none;
+  border: 1px solid var(--ink);
 }
 
-.artistLink span {
-  color: var(--red);
-  font-size: 17px;
+nav.authLinks a.signIn {
+  color: #ffffff;
+  border-color: rgb(255 255 255 / 70%);
+}
+
+nav.authLinks a.signUp {
+  color: #ffffff;
+  background: var(--red);
+  border-color: var(--red);
 }
 
 .hero {

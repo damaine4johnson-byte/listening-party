@@ -15,7 +15,10 @@ export default function Home() {
           </span>
         </Link>
         <div className={styles.navCenter}>PRIVATE LISTENING SERIES <span>·</span> EST. 2026</div>
-        <Link className={styles.artistLink} href="/showcase">See the room <span aria-hidden="true">↗</span></Link>
+        <nav className={styles.authLinks} aria-label="Account">
+          <Link className={styles.signIn} href="/host">Sign in</Link>
+          <Link className={styles.signUp} href="/signup">Sign up</Link>
+        </nav>
       </header>
 
       <section className={styles.hero} aria-labelledby="home-title">
