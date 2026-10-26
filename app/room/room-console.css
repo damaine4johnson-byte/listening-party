@@ -818,3 +818,6 @@
 
 .rm-add-songs { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; }
 .rm-add-songs summary { cursor: pointer; font-weight: 700; }
+
+.rm-end { background: #c2263f; border-color: #c2263f; color: #fff; margin-top: 10px; }
+.rm-ended { text-align: center; padding: 15vh 16px; display: grid; gap: 14px; justify-items: center; }

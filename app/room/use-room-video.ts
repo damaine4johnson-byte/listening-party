@@ -113,6 +113,12 @@ export function useRoomVideo(muted: boolean) {
     }
   }, []);
 
+  const stopAll = useCallback(async () => {
+    const lp = roomRef.current?.localParticipant;
+    if (!lp) return;
+    await Promise.allSettled([lp.setCameraEnabled(false), lp.setMicrophoneEnabled(false), lp.setScreenShareEnabled(false)]);
+  }, []);
+
   const toggleScreen = useCallback(async () => {
     const room = roomRef.current;
     if (!room) return;
@@ -124,5 +130,5 @@ export function useRoomVideo(muted: boolean) {
     }
   }, []);
 
-  return { videoRef, audioBoxRef, status, serverReady, canPublish, hasVideo, cameraOn, screenOn, error, toggleCamera, toggleScreen };
+  return { videoRef, audioBoxRef, status, serverReady, canPublish, hasVideo, cameraOn, screenOn, error, toggleCamera, toggleScreen, stopAll };
 }

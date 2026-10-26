@@ -43,6 +43,8 @@ function hashString(value: string) {
 
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [ended, setEnded] = useState(false);
+  const [ending, setEnding] = useState(false);
   const yielded = useRef(false);
   const tabChannel = useRef<BroadcastChannel | null>(null);
   const tabId = useRef(Math.random().toString(36).slice(2));
@@ -95,6 +97,10 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       try {
         const response = await fetch("/api/rooms/session", { cache: "no-store" });
         const result = await response.json();
+        if (response.status === 410) {
+          if (active) { active = false; setEnded(true); audioRef.current?.pause(); void video.stopAll(); }
+          return;
+        }
         if (!response.ok) {
           if (active) setNotice(result.error || "Could not load room data.");
         } else if (active) {
@@ -284,6 +290,31 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     }
   }
 
+  async function endStream() {
+    if (!state?.room_id || ending) return;
+    if (!window.confirm("End the live stream for everyone? Listeners will be disconnected and the room will close.")) return;
+    setEnding(true);
+    try {
+      await video.stopAll();
+      audioRef.current?.pause();
+      const response = await fetch("/api/host/rooms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: state.room_id, status: "ended" }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        setNotice(result.error || "Could not end the stream.");
+        setEnding(false);
+        return;
+      }
+      window.location.assign("/host");
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+      setEnding(false);
+    }
+  }
+
   async function setPlayback(status: "playing" | "paused", trackId = state?.track_id, positionSeconds = audioRef.current?.currentTime ?? 0) {
     if (!isHost || !trackId || !state) return;
     const previous = state;
@@ -448,6 +479,18 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const progress = trackLength > 0 ? Math.min(100, (currentTime / trackLength) * 100) : 0;
   const participants = new Set([...messages.map((m) => m.display_name), ...reactions.map((r) => r.display_name), displayName]).size;
   const hostInitial = (hostProfile?.display_name || "H").charAt(0).toUpperCase();
+
+  if (ended) {
+    return (
+      <main className="wrap rm-wrap">
+        <div className="rm-ended" role="status">
+          <h1>This listening room has ended</h1>
+          <p className="muted">Thanks for listening. The host has closed the stream.</p>
+          <Link className="btn" href="/">Back to home</Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="wrap rm-wrap">
@@ -631,6 +674,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 </button>
               </div>
               <p className="small">Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
+              <button className="btn rm-end" type="button" disabled={ending} onClick={() => void endStream()}>
+                {ending ? "Ending..." : "■ End live stream"}
+              </button>
               {state?.room_id && (
                 <details className="rm-add-songs">
                   <summary>＋ Add songs while live</summary>
