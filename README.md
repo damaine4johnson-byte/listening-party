@@ -25,7 +25,7 @@ A private, invitation-only listening-party web app starter for Famous Introvert 
 1. Create a Supabase project.
 2. In Supabase SQL Editor, run `supabase/schema.sql`.
 3. If upgrading an existing project, run `supabase/host_profiles.sql`, then `supabase/artist_tiers.sql`, `supabase/artist_tier_expansion.sql`, `supabase/paid_rooms.sql`, `supabase/listening_party.sql`, and `supabase/developer_admin.sql`.
-4. Create a **private** Storage bucket named `tracks` and set its file-size limit to at least 40 MB.
+4. Create a **private** Storage bucket named `tracks` and set its file-size limit to at least 200 MB (WAV files are large). Supabase also enforces a project-wide upload limit under Storage settings, which must be raised to match.
 5. Create a Next.js project or use these files as the starting source.
 6. Copy `.env.example` to `.env.local` and fill in values from Supabase project settings.
 7. Install dependencies and run locally.

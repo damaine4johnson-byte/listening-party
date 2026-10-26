@@ -62,7 +62,7 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
         const { error: uploadError } = await supabase.storage
           .from("tracks")
           .uploadToSignedUrl(signedResult.path, signedResult.token, track.file, { contentType: track.file.type });
-        if (uploadError) throw new Error(`Upload failed for ${track.title}. Check the private tracks bucket size limit.`);
+        if (uploadError) throw new Error(`Upload failed for ${track.title}. The file may exceed your Supabase plan's upload limit (50 MB on the free plan).`);
 
         const registerResponse = await fetch("/api/host/rooms/tracks", {
           method: "POST",
@@ -147,7 +147,7 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
       ))}
       <form onSubmit={addTrack}>
         <div className="field">
-          <label htmlFor={`track-files-${roomId}`}>Playlist audio files (up to 40 MB each)</label>
+          <label htmlFor={`track-files-${roomId}`}>Playlist audio files (WAV, MP3, FLAC and more, up to 200 MB each)</label>
           <input
             id={`track-files-${roomId}`}
             type="file"

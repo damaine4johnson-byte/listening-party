@@ -4,7 +4,7 @@ import { HOST_SESSION_COOKIE } from "../../../../../../lib/host-session";
 import { createSupabaseAdmin } from "../../../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../../../lib/host-profile";
 
-const MAX_AUDIO_BYTES = 40 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 200 * 1024 * 1024;
 const AUDIO_EXTENSIONS: Record<string, string> = {
   "audio/aac": "aac",
   "audio/flac": "flac",
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     typeof contentType !== "string" || !AUDIO_EXTENSIONS[contentType] ||
     typeof fileSize !== "number" || !Number.isInteger(fileSize) || fileSize < 1 || fileSize > MAX_AUDIO_BYTES
   ) {
-    return NextResponse.json({ error: "Choose a supported audio file smaller than 40 MB." }, { status: 400 });
+    return NextResponse.json({ error: "Choose a supported audio file smaller than 200 MB." }, { status: 400 });
   }
 
   try {
