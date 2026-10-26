@@ -78,6 +78,7 @@ export default function HostDashboard() {
   const [inviteCode, setInviteCode] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [inviteRoomTitle, setInviteRoomTitle] = useState("");
+  const [roomInvite, setRoomInvite] = useState<{ roomId: string; code: string; link: string } | null>(null);
   const [notice, setNotice] = useState("Loading rooms...");
   const [pending, setPending] = useState(false);
   const [entryFee, setEntryFee] = useState("");
@@ -159,6 +160,38 @@ export default function HostDashboard() {
       window.location.assign("/room");
     } catch {
       setNotice("Room service is unavailable. Try again shortly.");
+    }
+  }
+
+  async function newInvite(roomId: string) {
+    if (!window.confirm("Generate a new invite? The previous code for this room will stop working.")) return;
+    setNotice("");
+    try {
+      const response = await fetch("/api/host/rooms/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not create an invite.");
+        return;
+      }
+      const url = new URL("/", window.location.origin);
+      url.searchParams.set("invite", result.inviteCode);
+      url.hash = "enter-room";
+      setRoomInvite({ roomId, code: result.inviteCode, link: url.toString() });
+    } catch {
+      setNotice("Room service is unavailable. Try again shortly.");
+    }
+  }
+
+  async function copyText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice(`${label} copied.`);
+    } catch {
+      setNotice(`Copy failed. Select and copy the ${label.toLowerCase()} manually.`);
     }
   }
 
@@ -428,7 +461,24 @@ export default function HostDashboard() {
                     <button className="btn secondary" type="button" onClick={() => (editingId === room.id ? setEditingId("") : startEdit(room))}>
                       {editingId === room.id ? "Cancel" : "Edit"}
                     </button>
+                    {room.status !== "ended" && (
+                      <button className="btn secondary" type="button" onClick={() => void newInvite(room.id)}>Invite code</button>
+                    )}
                   </div>
+                  {roomInvite?.roomId === room.id && (
+                    <div className="hc-edit">
+                      <label htmlFor={`invite-code-${room.id}`}>Invite code (shown once)</label>
+                      <div className="row">
+                        <input id={`invite-code-${room.id}`} value={roomInvite.code} readOnly />
+                        <button className="btn secondary" type="button" onClick={() => void copyText(roomInvite.code, "Invite code")}>Copy code</button>
+                      </div>
+                      <label htmlFor={`invite-link-${room.id}`}>Shareable invite link</label>
+                      <div className="row">
+                        <input id={`invite-link-${room.id}`} value={roomInvite.link} readOnly />
+                        <button className="btn secondary" type="button" onClick={() => void copyText(roomInvite.link, "Invite link")}>Copy link</button>
+                      </div>
+                    </div>
+                  )}
                   {editingId === room.id && (
                     <div className="hc-edit">
                       <label htmlFor={`edit-title-${room.id}`}>Room name</label>
