@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import RoomTrackManager from "./room-track-manager";
+import HostAnalytics from "./host-analytics";
 import "./host-console.css";
 
 type Room = {
@@ -428,6 +429,7 @@ export default function HostDashboard() {
       </aside>
 
       <section className="hc-main" aria-labelledby="rooms-title">
+        <HostAnalytics rooms={rooms.map((room) => ({ id: room.id, title: room.title }))} />
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 id="rooms-title">Rooms</h2>
           <button className="btn secondary" type="button" onClick={() => void loadRooms()}>

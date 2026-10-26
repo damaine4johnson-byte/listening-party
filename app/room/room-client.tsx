@@ -30,6 +30,33 @@ const REACTIONS = [
   { id: "wow", label: "Wow", symbol: "😮" },
 ] as const;
 
+// Falls back to the initial when a listener has no photo (the avatar endpoint returns 404).
+function ChatAvatar({ name, version }: { name: string; version: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [name, version]);
+  return (
+    <span className="rm-msg-avatar" style={{ ["--hue" as string]: (hashString(name) % 360) }}>
+      {failed
+        // eslint-disable-next-line @next/next/no-img-element
+        ? name.charAt(0).toUpperCase()
+        : <img src={`/api/rooms/avatar?name=${encodeURIComponent(name)}&v=${version}`} alt="" onError={() => setFailed(true)} />}
+    </span>
+  );
+}
+
+async function resizeToJpeg(file: File, size = 96): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("no canvas");
+  const side = Math.min(bitmap.width, bitmap.height);
+  context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.75);
+}
+
 function formatTime(seconds: number) {
   const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
   return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
@@ -43,6 +70,7 @@ function hashString(value: string) {
 
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
   const [ended, setEnded] = useState(false);
   const [ending, setEnding] = useState(false);
   const yielded = useRef(false);
@@ -287,6 +315,31 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       setReactions((current) => [...current, result.reaction].slice(-50));
     } catch {
       setNotice("Reaction service is temporarily unavailable.");
+    }
+  }
+
+  async function chooseAvatar(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setNotice("Choose an image file.");
+      return;
+    }
+    try {
+      const image = await resizeToJpeg(file);
+      const response = await fetch("/api/rooms/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setNotice(result.error || "Could not save your photo.");
+        return;
+      }
+      setAvatarVersion(Date.now());
+      setNotice("Photo updated.");
+    } catch {
+      setNotice("Could not read that image.");
     }
   }
 
@@ -757,6 +810,12 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           <div className="rm-chat-head">
             <h2 id="live-chat-title">Live chat</h2>
             <span className="small">{participants} here</span>
+            {!isHost && (
+              <label className="rm-photo-btn" title="Add or change your photo">
+                📷 Photo
+                <input type="file" accept="image/*" hidden onChange={(event) => { void chooseAvatar(event.target.files?.[0]); event.target.value = ""; }} />
+              </label>
+            )}
           </div>
           <div className="rm-chatlog" ref={chatLogRef} aria-live="polite">
             {messages.length === 0
@@ -765,9 +824,10 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 const fromHost = message.display_name === hostProfile?.display_name;
                 return (
                   <div className={`rm-msg ${fromHost ? "host" : ""}`} key={message.id}>
-                    <span className="rm-msg-avatar" style={{ ["--hue" as string]: (hashString(message.display_name) % 360) }}>
-                      {message.display_name.charAt(0).toUpperCase()}
-                    </span>
+                    {fromHost && hostProfile?.avatar_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <span className="rm-msg-avatar"><img src={hostProfile.avatar_url} alt="" /></span>
+                      : <ChatAvatar name={message.display_name} version={avatarVersion} />}
                     <div>
                       <strong>{message.display_name}</strong>
                       {fromHost && <span className="rm-verified">HOST</span>}

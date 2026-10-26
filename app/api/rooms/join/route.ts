@@ -151,6 +151,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Room state could not be initialized." }, { status: 503 });
     }
 
+    // Best-effort log for host analytics; a failure here must not block entry.
+    await supabase.from("room_visits").insert({ room_id: room.id, member_id: memberId, display_name: displayName });
+
     const response = NextResponse.json({ ok: true });
     response.cookies.set(ROOM_SESSION_COOKIE, createRoomSessionToken(room.id, memberId, displayName), {
       httpOnly: true,
