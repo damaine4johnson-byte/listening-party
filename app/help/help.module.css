@@ -1,0 +1,100 @@
+.page {
+  width: min(100% - 40px, 980px);
+  margin: 0 auto;
+  padding: 28px 0 44px;
+}
+
+.nav,
+.nav nav,
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nav {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #333;
+}
+
+.nav nav {
+  justify-content: flex-end;
+}
+
+.nav a,
+.footer a {
+  color: #ff5265;
+  text-decoration: none;
+}
+
+.brand {
+  color: #fff !important;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.nav nav a {
+  font-size: 13px;
+}
+
+.intro {
+  padding: 48px 0 26px;
+}
+
+.eyebrow {
+  color: #ff5265;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2em;
+}
+
+.intro h1 {
+  margin: 12px 0;
+  color: #fff;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(42px, 7vw, 66px);
+  font-weight: 500;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+.intro > p:last-child {
+  max-width: 650px;
+  color: #b8b8b8;
+  line-height: 1.7;
+}
+
+.footer {
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid #333;
+  color: #aaa;
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .page {
+    width: min(100% - 28px, 980px);
+    padding-top: 18px;
+  }
+
+  .nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nav nav {
+    justify-content: flex-start;
+  }
+
+  .intro {
+    padding-top: 36px;
+  }
+
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

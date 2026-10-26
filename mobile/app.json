@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Famous Introvert Listening Rooms",
+    "slug": "listening-party",
+    "owner": "famous-introvert",
+    "scheme": "listeningparty",
+    "version": "1.0.0",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.famousintrovert.listeningrooms"
+    },
+    "android": {
+      "package": "com.famousintrovert.listeningrooms",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#080808"
+      },
+      "permissions": ["android.permission.INTERNET"]
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "enableBackgroundPlayback": true
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

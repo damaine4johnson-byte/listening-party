@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import JoinForm from "./join-form";
 import LogoMark from "./logo-mark";
 import HomeEffects from "./home-effects";
 import styles from "./home.module.css";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
+};
 
 export default function Home() {
   return (
@@ -24,7 +30,7 @@ export default function Home() {
       </header>
 
       <section className={styles.hero} aria-labelledby="home-title">
-        <div className={styles.heroPhoto} role="img" aria-label="A recording studio prepared for a private first listen" />
+        <div className={styles.heroPhoto} role="img" aria-label="A recording studio prepared for an exclusive listen" />
         <div className={styles.heroShade} />
         <div className={styles.orbA} aria-hidden="true" />
         <div className={styles.orbB} aria-hidden="true" />
@@ -32,9 +38,9 @@ export default function Home() {
           {Array.from({ length: 28 }, (_, i) => <i key={i} style={{ ["--i" as string]: i }} />)}
         </div>
         <div className={styles.heroContent}>
-          <div className={styles.kicker}><span /> PRIVATE FIRST LISTENS</div>
+          <div className={styles.kicker}><span /> EXCLUSIVE LISTENS</div>
           <h1 id="home-title"><span>Listen</span><br /><span className={styles.glow}>Party</span></h1>
-          <p>Your private first listen, shared in real time.</p>
+          <p>Your exclusive listen, shared in real time.</p>
           <div className={styles.heroRule} />
           <div className={styles.heroFoot}>
             <span>RECORDS / LISTENING ROOMS</span>
@@ -74,6 +80,9 @@ export default function Home() {
         <span>FAMOUS INTROVERT RECORDS <span className={styles.footerDot}>·</span> PRIVATE BY DESIGN</span>
         <nav aria-label="Footer">
           <Link href="/showcase">The listening room</Link>
+          <Link href="/wallet">Listener coins</Link>
+          <Link href="/about">About</Link>
+          <Link href="/help">Help & support</Link>
           <Link href="/host">Host access</Link>
           <Link href="/signup">Artist access</Link>
         </nav>

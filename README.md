@@ -46,14 +46,21 @@ npm run dev
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENVIRONMENT` (`sandbox` or `live`): PayPal REST app with Payouts enabled, used to pay artists.
 - `PAYOUT_ADMIN_TOKEN`: long random secret that authorizes the platform-owner payout endpoint.
 - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`: optional [LiveKit](https://livekit.io) credentials that enable host live camera and screen sharing in rooms; the key and secret are server-only. Without them, rooms work as audio-only listening rooms
+- `ADMIN_GOOGLE_EMAILS`: comma-separated Google emails that sign in to `/admin` as owners (separate from `HOST_GOOGLE_EMAILS`; admin and host sessions are independent). Add `https://www.exclusivelisten.com/admin/callback` (and the local URL) to the Supabase redirect allow-list. Owners can add more Google admins by email in the Admins tab
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` (min 12 chars): bootstrap owner for the admin dashboard at `/admin`; server-only. Run `supabase/admin_accounts.sql` to enable extra admin accounts (roles: viewer, admin, owner) and the audit log, which owners manage from the dashboard
 - `HOST_USERNAME`: username for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
 - `HOST_PASSWORD`: long random password for `/host`; server-only, never use a `NEXT_PUBLIC_` prefix
 - `HOST_GOOGLE_EMAILS`: optional comma-separated exact Google account email allowlist for host console access; artist signup is self-serve
+- `GEMINI_API_KEY`: server-only Google Gemini API key for the `/help` support assistant
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`: server-only Resend API key and verified sender address used only for human support escalations
+- `SUPPORT_ESCALATION_EMAIL`: destination for support escalations (set to `famousintrovertrecords@gmail.com`); only used when the assistant determines human help is needed
+
+The public `/help` page uses Gemini for product questions and sends the conversation to the configured support email via Resend only when a person is requested or the issue needs human assistance. Visitors can optionally provide an email for a reply. `/about` introduces Exclusive Listens and founder Damaine Johnson.
 
 When deployed through the Vercel Supabase integration, the project also accepts its `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SECRET_KEY` variables. `APP_SUPABASE_URL`, `APP_SUPABASE_ANON_KEY`, and `APP_SUPABASE_SECRET_KEY`, when set, override the integration-provided project URL, public key, and server key respectively. The server secret is only used server-side; the URL and anon key are mapped for the browser client.
 
 ## 3. Host profile and room setup
-Configure host sign-in with a strong, unique `HOST_USERNAME` and `HOST_PASSWORD`, or configure Google OAuth and set `HOST_GOOGLE_EMAILS` to the exact allowed host accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, allow `http://localhost:3001/signup/callback`, `http://localhost:3001/host/callback`, and corresponding deployed URLs.
+Configure host sign-in with a strong, unique `HOST_USERNAME` and `HOST_PASSWORD`, or configure Google OAuth and set `HOST_GOOGLE_EMAILS` to the exact allowed host accounts. In Google Cloud, set the authorized redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`. In Supabase Authentication URL Configuration, set the Site URL to `https://www.exclusivelisten.com` and allow `https://www.exclusivelisten.com/signup/callback`, `https://www.exclusivelisten.com/host/callback`, and `https://www.exclusivelisten.com/wallet/callback`, as well as the corresponding local development URLs.
 
 Open **Profile setup** from the host console to set the public display name, bio, and HTTPS avatar URL shown to listeners, plus a private contact email. The Google email or configured username is shown as the account identity. Contact email and sign-in identity are only returned by authenticated host APIs; room guests receive only display name, bio, and avatar URL.
 
@@ -78,7 +85,13 @@ Payments are collected by **WiPay** into the platform's account (hosted card che
 
 ### Song tips
 
-Listeners see a ⚡ Boost button on each queued track when the host has saved a PayPal email. They pick $3, $5 or $10 (the API accepts $2–$200) and pay through WiPay. When the verified payment returns, that song is moved directly after the one now playing and the host is credited the same way as paid entry.
+Listeners see a ⚡ Boost button on each queued track when the host has saved a PayPal email. They can pay $3, $5 or $10 by card, or use 30, 50 or 100 coins. When payment is verified, that song is moved directly after the one now playing and the host is credited the same way as paid entry.
+
+### Listener coins
+
+Listener wallets use Google sign-in and work across devices. The rate is **1 USD = 10 coins**; packs are 50 coins for $5, 100 for $10, or 200 for $20, paid through WiPay. Coins can be spent on paid room entry or song boosts. Spending coins credits the host in USD at the same 10-coins-per-dollar rate and applies the regular platform fee. For room fees that are not exact 10-cent increments, use card checkout instead.
+
+For existing projects, run `supabase/listener_coins.sql` after `supabase/wipay_payments.sql`. Fresh projects get the coin tables and functions from `supabase/schema.sql`. Google sign-in must be enabled in Supabase Auth and the `/wallet/callback` URL must be allowed.
 
 ### Paying artists
 
@@ -89,7 +102,7 @@ curl -X POST "https://YOUR_APP/api/admin/payouts?dryRun=1" -H "Authorization: Be
 curl -X POST "https://YOUR_APP/api/admin/payouts" -H "Authorization: Bearer $PAYOUT_ADMIN_TOKEN"            # send
 ```
 
-Rows are reserved under a batch id before PayPal is called so a retry cannot pay twice; if PayPal errors, check PayPal before releasing the batch. Run `supabase/paid_rooms.sql` then `supabase/wipay_payments.sql` once on existing projects.
+Rows are reserved under a batch id before PayPal is called so a retry cannot pay twice; if PayPal errors, check PayPal before releasing the batch. Run `supabase/paid_rooms.sql`, `supabase/wipay_payments.sql`, and `supabase/listener_coins.sql` in that order once on existing projects.
 
 ## 5. Hosting
 Deploy the Next.js app to Vercel or another Node-compatible host. Add the same environment variables in the hosting dashboard. Do not commit `.env.local`.
@@ -147,5 +160,8 @@ Listeners calculate the expected playhead from the shared timestamp and gently s
 5. Load test before advertising a 100-person room.
 6. Only then upload masters cleared for preview.
 
+## Native mobile app
+The separate Expo/React Native iOS and Android client is in [`mobile/`](./mobile/). It supports listener rooms, host tools, and Apple/Google in-app coin purchases. See [`mobile/README.md`](./mobile/README.md) for setup, Supabase redirects, RevenueCat products/webhook configuration, and EAS builds. In addition to the coin-wallet migration, deploy `app/api/payments/revenuecat` and set `REVENUECAT_WEBHOOK_AUTHORIZATION` on the website server before enabling coin purchases in the native app.
+
 ## Current scaffold status
-This starter contains invite-verified rooms, private track upload/playback, host-authorized synchronized playback, live chat and reactions, self-serve Google artist signup, plan selection, active-listener caps, host-owned profiles, and Supabase-managed platform settings. Billing, third-party ad serving, invite throttling/revocation, and production-grade host identity remain incomplete.
+The website contains invite-verified rooms, private track upload/playback, host-authorized synchronized playback, live chat and reactions, self-serve Google artist signup, plan selection, active-listener caps, host-owned profiles, and Supabase-managed platform settings. Billing for artist subscriptions, third-party ad serving, invite throttling/revocation, and production-grade host identity remain incomplete.

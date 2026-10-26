@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createRoomSessionToken, ROOM_SESSION_COOKIE, ROOM_SESSION_MAX_AGE } from "../../../../../lib/room-session";
-import { createSupabaseAdmin } from "../../../../../lib/supabase-admin";
 import { HOST_SESSION_COOKIE } from "../../../../../lib/host-session";
+import { createSupabaseAdmin } from "../../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../../lib/host-profile";
 
 // Lets a signed-in host open their own room without an invite code or entry fee.
@@ -43,8 +43,12 @@ export async function POST(request: NextRequest) {
       .from("room_state")
       .upsert({ room_id: room.id, status: "paused", position_seconds: 0 }, { onConflict: "room_id", ignoreDuplicates: true });
 
-    const response = NextResponse.json({ ok: true });
-    response.cookies.set(ROOM_SESSION_COOKIE, createRoomSessionToken(room.id, memberId, displayName), {
+    const roomSessionToken = createRoomSessionToken(room.id, memberId, displayName);
+    const response = NextResponse.json({
+      ok: true,
+      ...(request.headers.get("x-fi-mobile") === "1" ? { roomSessionToken } : {}),
+    });
+    response.cookies.set(ROOM_SESSION_COOKIE, roomSessionToken, {
       httpOnly: true,
       maxAge: ROOM_SESSION_MAX_AGE,
       path: "/",

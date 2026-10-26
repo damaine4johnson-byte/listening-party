@@ -4,6 +4,7 @@ import { createRoomSessionToken, ROOM_SESSION_COOKIE, ROOM_SESSION_MAX_AGE } fro
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { readActiveHostSession } from "../../../../lib/host-profile";
+import { getListenerUser } from "../../../../lib/listener-auth";
 
 function getSupabaseHost() {
   const url = process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
 
         const { data: paidOrder } = await supabase
           .from("payment_orders")
-          .select("order_id")
+          .select("order_id, listener_user_id, coins_spent")
           .eq("order_id", paymentSessionId)
           .eq("kind", "entry")
           .eq("room_id", room.id)
@@ -100,6 +101,12 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         if (!paidOrder) {
           return NextResponse.json({ ...paymentRequired, error: "Payment was not completed for this room." }, { status: 402 });
+        }
+        if (paidOrder.coins_spent > 0) {
+          const listener = await getListenerUser(request);
+          if (!listener || paidOrder.listener_user_id !== listener.id) {
+            return NextResponse.json({ ...paymentRequired, error: "Sign in to the account that paid with coins." }, { status: 401 });
+          }
         }
 
         // The conditional update claims the payment for exactly one listener.
@@ -154,8 +161,12 @@ export async function POST(request: NextRequest) {
     // Best-effort log for host analytics; a failure here must not block entry.
     await supabase.from("room_visits").insert({ room_id: room.id, member_id: memberId, display_name: displayName });
 
-    const response = NextResponse.json({ ok: true });
-    response.cookies.set(ROOM_SESSION_COOKIE, createRoomSessionToken(room.id, memberId, displayName), {
+    const roomSessionToken = createRoomSessionToken(room.id, memberId, displayName);
+    const response = NextResponse.json({
+      ok: true,
+      ...(request.headers.get("x-fi-mobile") === "1" ? { roomSessionToken } : {}),
+    });
+    response.cookies.set(ROOM_SESSION_COOKIE, roomSessionToken, {
       httpOnly: true,
       maxAge: ROOM_SESSION_MAX_AGE,
       path: "/",

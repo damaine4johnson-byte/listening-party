@@ -6,6 +6,7 @@ import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { useRoomVideo } from "./use-room-video";
 import RoomTrackManager from "../host/room-track-manager";
+import { supabase } from "../../lib/supabase";
 import "./room-console.css";
 
 type RoomState = {
@@ -94,6 +95,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [notice, setNotice] = useState("Connecting to room...");
   const [tipTrackId, setTipTrackId] = useState<string | null>(null);
   const [tipBusy, setTipBusy] = useState(false);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
+  const [coinSignedIn, setCoinSignedIn] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [roomTitle, setRoomTitle] = useState("Listening room");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -191,6 +194,33 @@ export default function RoomClient({ displayName, previewVideoControls = false }
 
     void refreshRoom();
     return () => { active = false; if (timer) window.clearTimeout(timer); };
+  }, []);
+
+  useEffect(() => {
+    const authClient = supabase;
+    if (!authClient) return;
+    let active = true;
+    async function loadCoinBalance() {
+      if (!authClient) return;
+      const { data, error } = await authClient.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!active) return;
+      setCoinSignedIn(Boolean(accessToken && !error));
+      if (error || !accessToken) {
+        setCoinBalance(null);
+        return;
+      }
+      const response = await fetch("/api/coins/balance", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (active && response.ok && typeof result.balance === "number") setCoinBalance(result.balance);
+    }
+    void loadCoinBalance().catch(() => {
+      if (active) setCoinBalance(null);
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -472,6 +502,44 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       window.location.assign(result.url);
     } catch {
       setNotice("Tip service is temporarily unavailable.");
+    } finally {
+      setTipBusy(false);
+    }
+  }
+
+  async function startCoinTip(track: RoomTrack, coins: number) {
+    setTipBusy(true);
+    try {
+      if (!supabase) {
+        setNotice("Listener sign-in is not configured.");
+        return;
+      }
+      const { data, error } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (error || !accessToken) {
+        setNotice("Sign in to your listener wallet to tip with coins.");
+        return;
+      }
+      const response = await fetch("/api/coins/tip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ trackId: track.id, coins }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setNotice(result.error || "Could not tip with coins.");
+        return;
+      }
+      setNotice(`${coins} coins sent. Your song moves up to play next.`);
+      setTipTrackId(null);
+      const balanceResponse = await fetch("/api/coins/balance", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      const balanceResult = await balanceResponse.json();
+      if (balanceResponse.ok && typeof balanceResult.balance === "number") setCoinBalance(balanceResult.balance);
+    } catch {
+      setNotice("Coin wallet is temporarily unavailable.");
     } finally {
       setTipBusy(false);
     }
@@ -842,10 +910,26 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                           <span className="small">Tip to play next:</span>
                           {[300, 500, 1000].map((cents) => (
                             <button key={cents} type="button" disabled={tipBusy} onClick={() => void startTip(track, cents)}>
-                              ${cents / 100}
+                            ${cents / 100} card
                             </button>
                           ))}
+                        <span className="small">
+                          {coinSignedIn
+                            ? `Wallet: ${coinBalance === null ? "checking..." : `${coinBalance.toLocaleString()} coins`}`
+                            : <Link href="/wallet">Sign in for coins</Link>}
                         </span>
+                        {[30, 50, 100].map((coins) => (
+                          <button
+                            key={coins}
+                            type="button"
+                            disabled={tipBusy || !coinSignedIn || coinBalance === null || coinBalance < coins}
+                            onClick={() => void startCoinTip(track, coins)}
+                          >
+                            {coins} coins
+                          </button>
+                        ))}
+                        <Link href="/wallet" className="small">Buy coins</Link>
+                      </span>
                       )}
                       {isHost && (
                         <span className="rm-reorder">

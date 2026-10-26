@@ -6,6 +6,8 @@ import styles from "../home.module.css";
 export const metadata: Metadata = {
   title: "The Listening Room | Famous Introvert",
   description: "Discover private, shared first-listen sessions from Famous Introvert Records.",
+  alternates: { canonical: "/showcase" },
+  openGraph: { url: "/showcase" },
 };
 
 export default function ShowcasePage() {

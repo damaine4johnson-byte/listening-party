@@ -1,0 +1,39 @@
+.adm { --bg: #0e0e12; --panel: #17171d; --line: #2a2a34; --text: #ececf1; --muted: #9a9aa8; --accent: #8b7cff; --danger: #ff6b6b; --ok: #4cd6a0;
+  min-height: 100vh; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+.adm * { box-sizing: border-box; }
+.adm .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+.adm header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.adm h1 { font-size: 22px; margin: 0; }
+.adm h2 { font-size: 16px; margin: 24px 0 10px; }
+.adm .who { color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.adm .badge { background: #8b7cff22; color: var(--accent); border-radius: 999px; padding: 1px 10px; font-size: 12px; }
+.adm nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.adm button, .adm select, .adm input, .adm textarea { font: inherit; color: var(--text); background: #1f1f28; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+.adm button { cursor: pointer; }
+.adm button:hover:not(:disabled) { border-color: var(--accent); }
+.adm button:disabled, .adm select:disabled { opacity: .45; cursor: not-allowed; }
+.adm button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.adm button.danger { color: var(--danger); }
+.adm input:focus, .adm textarea:focus, .adm select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.adm textarea { resize: vertical; min-height: 60px; }
+.adm .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.adm .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 8px 0; }
+.adm .stat small { color: var(--muted); }
+.adm .stat div { font-size: 26px; font-weight: 600; }
+.adm .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.adm table { width: 100%; border-collapse: collapse; }
+.adm th, .adm td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.adm th { color: var(--muted); font-weight: 500; }
+.adm tr:last-child td { border-bottom: 0; }
+.adm .bar { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.adm .bar .grow { flex: 1; min-width: 180px; }
+.adm .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--muted); }
+.adm .err { color: var(--danger); margin: 10px 0; }
+.adm .note { color: var(--ok); margin: 10px 0; }
+.adm .muted { color: var(--muted); }
+.adm .grid { display: grid; gap: 8px; }
+.adm .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.adm .chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin: 8px 0 4px; }
+.adm .chart span { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; }
+.adm .login { max-width: 360px; margin: 12vh auto 0; }
+.adm .login form { display: grid; gap: 12px; }

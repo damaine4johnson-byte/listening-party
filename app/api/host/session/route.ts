@@ -61,8 +61,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Host profile storage is not configured." }, { status: 503 });
   }
 
-  const response = NextResponse.json({ authenticated: true });
-  response.cookies.set(HOST_SESSION_COOKIE, createHostSessionToken(hostId), {
+  const hostSessionToken = createHostSessionToken(hostId);
+  const response = NextResponse.json({
+    authenticated: true,
+    ...(request.headers.get("x-fi-mobile") === "1" ? { hostSessionToken } : {}),
+  });
+  response.cookies.set(HOST_SESSION_COOKIE, hostSessionToken, {
     httpOnly: true,
     maxAge: HOST_SESSION_MAX_AGE,
     path: "/",

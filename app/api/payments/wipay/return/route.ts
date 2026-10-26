@@ -26,14 +26,41 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
     if (!order) return redirect(request, "/?payment=invalid");
 
-    const failedPath = order.kind === "tip" ? "/room?tip=failed" : "/?payment=failed#enter-room";
+    const failedPath = order.kind === "coin_purchase"
+      ? "/wallet?purchase=failed"
+      : order.kind === "tip" ? "/room?tip=failed" : "/?payment=failed#enter-room";
     if (params.get("status") !== "success") return redirect(request, failedPath);
     if (!transactionId || !hash || !verifyWipayHash(transactionId, order.amount_cents, hash)) {
       return redirect(request, "/?payment=invalid");
     }
 
-    const okPath = order.kind === "tip" ? "/room?tip=ok" : `/?paid=${order.order_id}#enter-room`;
+    const okPath = order.kind === "coin_purchase"
+      ? "/wallet?coins=added"
+      : order.kind === "tip" ? "/room?tip=ok" : `/?paid=${order.order_id}#enter-room`;
     if (order.status === "paid") return redirect(request, okPath);
+
+    if (order.kind === "coin_purchase") {
+      const { data: settled, error } = await supabase.rpc("settle_listener_coin_purchase", {
+        p_order_id: order.order_id,
+        p_transaction_id: transactionId,
+      });
+      if (error) {
+        console.error("Coin purchase settlement failed", { code: error.code ?? "unknown" });
+        return redirect(request, "/wallet?purchase=error");
+      }
+      if (!settled) {
+        const { data: currentOrder, error: statusError } = await supabase
+          .from("payment_orders")
+          .select("status")
+          .eq("order_id", order.order_id)
+          .maybeSingle();
+        if (statusError || currentOrder?.status !== "paid") {
+          console.error("Coin purchase was not settled", { orderId: order.order_id });
+          return redirect(request, "/wallet?purchase=error");
+        }
+      }
+      return redirect(request, okPath);
+    }
 
     // Only the request that flips pending -> paid applies the side effects.
     const { data: settled } = await supabase
