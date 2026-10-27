@@ -7,3 +7,4 @@ build/
 .vercel/
 *.tsbuildinfo
 .vercel
+listening-party/
