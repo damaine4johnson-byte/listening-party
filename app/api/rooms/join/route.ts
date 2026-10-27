@@ -7,7 +7,7 @@ import { readActiveHostSession } from "../../../../lib/host-profile";
 import { getListenerUser } from "../../../../lib/listener-auth";
 
 function getSupabaseHost() {
-  const url = process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const url = process.env.NEXT_PUBLIC_APP_SUPABASE_URL ?? process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   if (!url) return "missing";
   try {
     return new URL(url).hostname;
