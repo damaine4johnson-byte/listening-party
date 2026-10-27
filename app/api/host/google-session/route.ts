@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
   }
 
-  const url = process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const anonKey = process.env.APP_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_APP_SUPABASE_URL ?? process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_APP_SUPABASE_ANON_KEY ?? process.env.APP_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
   const allowedEmails = (process.env.HOST_GOOGLE_EMAILS ?? "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
