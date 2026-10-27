@@ -279,12 +279,12 @@ function AboutPhoto({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   const upload = (file?: File) => {
     if (!file) return;
     void guard(async () => {
-      const body = new FormData();
-      body.append("photo", file);
-      const res = await fetch("/api/admin/about-photo", { method: "POST", body });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw Object.assign(new Error(data.error ?? "Upload failed."), { status: res.status });
-      setUrl(data.url);
+      if (file.size > 10 * 1024 * 1024) throw new Error("Image must be 10 MB or smaller.");
+      if (!supabase) throw new Error("Supabase is not configured.");
+      const t = await api("/api/admin/about-photo", "POST", { type: file.type, size: file.size });
+      const { error: upErr } = await supabase.storage.from(t.bucket).uploadToSignedUrl(t.path, t.token, file, { contentType: file.type, upsert: true });
+      if (upErr) throw new Error("Upload failed. Try again.");
+      setUrl((await api("/api/admin/about-photo", "PUT")).url);
     }, "About photo updated.");
   };
   return (
@@ -292,7 +292,7 @@ function AboutPhoto({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
       <b>About page photo</b>
       {url ? <img src={url} alt="About page founder" style={{ width: 150, aspectRatio: "4 / 5", objectFit: "cover" }} /> : <span className="muted">No photo yet.</span>}
       <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canEdit} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
-      <span className="muted">JPEG, PNG or WebP, up to 2 MB.</span>
+      <span className="muted">JPEG, PNG or WebP, up to 10 MB.</span>
       {url && <button type="button" disabled={!canEdit} onClick={() => void guard(async () => { await api("/api/admin/about-photo", "DELETE"); setUrl(null); }, "About photo removed.")}>Remove photo</button>}
     </div>
   );
