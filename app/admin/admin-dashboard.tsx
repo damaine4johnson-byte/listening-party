@@ -280,10 +280,12 @@ function AboutPhoto({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
     if (!file) return;
     void guard(async () => {
       if (file.size > 10 * 1024 * 1024) throw new Error("Image must be 10 MB or smaller.");
-      if (!supabase) throw new Error("Supabase is not configured.");
       const t = await api("/api/admin/about-photo", "POST", { type: file.type, size: file.size });
-      const { error: upErr } = await supabase.storage.from(t.bucket).uploadToSignedUrl(t.path, t.token, file, { contentType: file.type, upsert: true });
-      if (upErr) throw new Error("Upload failed. Try again.");
+      const body = new FormData();
+      body.append("cacheControl", "3600");
+      body.append("", file);
+      const up = await fetch(t.signedUrl, { method: "PUT", headers: { "x-upsert": "true" }, body });
+      if (!up.ok) throw new Error("Upload failed. Try again.");
       setUrl((await api("/api/admin/about-photo", "PUT")).url);
     }, "About photo updated.");
   };

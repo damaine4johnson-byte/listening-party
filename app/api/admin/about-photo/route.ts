@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     await ensureSiteBucket();
     const { data, error } = await createSupabaseAdmin().storage.from(SITE_BUCKET).createSignedUploadUrl(ABOUT_PHOTO_PATH, { upsert: true });
     if (error || !data) return NextResponse.json({ error: "Could not start the upload." }, { status: 503 });
-    return NextResponse.json({ bucket: SITE_BUCKET, path: data.path, token: data.token });
+    return NextResponse.json({ signedUrl: data.signedUrl });
   } catch {
     return NextResponse.json({ error: "Could not start the upload." }, { status: 503 });
   }
