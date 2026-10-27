@@ -273,11 +273,38 @@ function ArtistRow({ a, canEdit, onSave }: { a: Json; canEdit: boolean; onSave: 
   );
 }
 
+function AboutPhoto({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { void guard(async () => setUrl((await api("/api/admin/about-photo")).url)); }, [guard]);
+  const upload = (file?: File) => {
+    if (!file) return;
+    void guard(async () => {
+      const body = new FormData();
+      body.append("photo", file);
+      const res = await fetch("/api/admin/about-photo", { method: "POST", body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error ?? "Upload failed."), { status: res.status });
+      setUrl(data.url);
+    }, "About photo updated.");
+  };
+  return (
+    <div className="card grid" style={{ maxWidth: 560, marginBottom: 16 }}>
+      <b>About page photo</b>
+      {url ? <img src={url} alt="About page founder" style={{ width: 150, aspectRatio: "4 / 5", objectFit: "cover" }} /> : <span className="muted">No photo yet.</span>}
+      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!canEdit} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+      <span className="muted">JPEG, PNG or WebP, up to 2 MB.</span>
+      {url && <button type="button" disabled={!canEdit} onClick={() => void guard(async () => { await api("/api/admin/about-photo", "DELETE"); setUrl(null); }, "About photo removed.")}>Remove photo</button>}
+    </div>
+  );
+}
+
 function Settings({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   const [s, setS] = useState<Json>(null);
   useEffect(() => { void guard(async () => setS((await api("/api/admin/settings")).settings)); }, [guard]);
   if (!s) return null;
   return (
+    <>
+    <AboutPhoto guard={guard} canEdit={canEdit} />
     <form className="card grid" style={{ maxWidth: 560 }} onSubmit={(e) => { e.preventDefault(); void guard(async () => setS((await api("/api/admin/settings", "PATCH", s)).settings), "Settings saved."); }}>
       <label><input type="checkbox" disabled={!canEdit} checked={s.free_tier_ads_enabled} onChange={(e) => setS({ ...s, free_tier_ads_enabled: e.target.checked })} /> Show ads to free-tier artists</label>
       <input value={s.free_tier_ad_title} disabled={!canEdit} maxLength={120} onChange={(e) => setS({ ...s, free_tier_ad_title: e.target.value })} placeholder="Ad title" />
@@ -290,6 +317,7 @@ function Settings({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
       </label>
       <button className="on" type="submit" disabled={!canEdit}>Save settings</button>
     </form>
+    </>
   );
 }
 

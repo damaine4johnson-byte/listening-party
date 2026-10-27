@@ -105,6 +105,14 @@
   background: linear-gradient(145deg, #1a1415, #0d0d0d);
 }
 
+.portraitImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border: 1px solid #5a4548;
+}
+
 .portrait figcaption {
   margin-top: 7px;
   color: #999;

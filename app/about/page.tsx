@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import styles from "./about.module.css";
+import { getAboutPhotoUrl } from "../../lib/about-photo";
 
 export const metadata: Metadata = {
   title: "About Exclusive Listens",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
   openGraph: { url: "/about" },
 };
 
-export default function AboutPage() {
+export const revalidate = 60;
+
+export default async function AboutPage() {
+  const photoUrl = await getAboutPhotoUrl();
   return (
     <main className={styles.page}>
       <header className={styles.nav}>
@@ -32,8 +36,13 @@ export default function AboutPage() {
         <p className={styles.eyebrow}>MEET THE FOUNDER</p>
         <div className={styles.founderIntro}>
           <figure className={styles.portrait}>
-            <div className={styles.portraitPlaceholder} aria-hidden="true" />
-            <figcaption>Founder photo</figcaption>
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className={styles.portraitImage} src={photoUrl} alt="Damaine Johnson, founder of Exclusive Listens" />
+            ) : (
+              <div className={styles.portraitPlaceholder} aria-hidden="true" />
+            )}
+            <figcaption>{photoUrl ? "Damaine Johnson" : "Founder photo"}</figcaption>
           </figure>
           <div>
             <h2 id="founder-title">Damaine Johnson</h2>
