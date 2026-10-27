@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
     const user = data.user;
     const email = user?.email?.trim().toLowerCase();
     if (error || !user || user.app_metadata.provider !== "google" || !email || !user.email_confirmed_at) {
-      return NextResponse.json({ error: "Google account could not be verified." }, { status: 401 });
+      const reason = error ? "token rejected" : !user ? "no user" : user.app_metadata.provider !== "google" ? "not a google login" : "email not confirmed";
+      console.error("admin google verify failed:", reason, error?.message);
+      return NextResponse.json({ error: `Google account could not be verified (${reason}).` }, { status: 401 });
     }
 
     let source: "google-env" | "db" | null = adminGoogleEmails().includes(email) ? "google-env" : null;
