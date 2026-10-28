@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
       );
       if (geminiResponse.ok) result = getReply(await geminiResponse.json());
       else console.error("Gemini support request failed.", { status: geminiResponse.status });
-    } catch {
-      console.error("Gemini support request could not be completed.");
+    } catch (error) {
+      console.error("Gemini support request could not be completed.", error instanceof Error ? `${error.name}: ${error.message}` : "unknown");
     }
   }
 
