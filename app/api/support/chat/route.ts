@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.8-flash")}:generateContent?key=${encodeURIComponent(geminiApiKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
