@@ -13,9 +13,9 @@ export default function ArtistSignupPage() {
         <span className="tag">ARTIST SIGN UP</span>
       </header>
       <section className="hero">
-        <div className="eyebrow">For independent artists</div>
-        <h1>Host your first listen.</h1>
-        <p>Choose a tier, sign in with Google, and set up your artist profile.</p>
+        <div className="eyebrow">Sign up</div>
+        <h1>Listen, or host your own room.</h1>
+        <p>Choose how you want to use Famous Introvert, then sign in with Google.</p>
       </section>
       <ArtistSignupForm />
       <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>

@@ -6,122 +6,56 @@ import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { useRoomVideo } from "./use-room-video";
 import RoomTrackManager from "../host/room-track-manager";
-import { supabase } from "../../lib/supabase";
 import "./room-console.css";
-
-type RoomState = {
-  room_id: string;
-  track_id: string | null;
-  status: "playing" | "paused";
-  position_seconds: number;
-  started_at: string | null;
-  updated_at: string;
-};
-type ViewerData = {
-  viewers: { name: string; spentCents: number; tipCents: number; tipCount: number; rank: number | null; joinedAt: string }[];
-  recentJoins: { name: string; joinedAt: string }[];
-  totalTipCents: number;
-};
-type ChatMessage = { id: string; display_name: string; body: string; created_at: string };
-type RoomTrack = { id: string; title: string; durationSeconds: number | null; trackOrder: number; url: string };
-type HostProfile = { display_name: string; bio: string; avatar_url: string };
-type Reaction = { id: string; display_name: string; reaction: "heart" | "fire" | "clap" | "laugh" | "wow"; created_at: string };
-type HouseAd = { title: string; body: string; href: string };
-
-const REACTIONS = [
-  { id: "heart", label: "Love", symbol: "♥" },
-  { id: "fire", label: "Fire", symbol: "🔥" },
-  { id: "clap", label: "Clap", symbol: "👏" },
-  { id: "laugh", label: "Laugh", symbol: "😂" },
-  { id: "wow", label: "Wow", symbol: "😮" },
-] as const;
-
-// Falls back to the initial when a listener has no photo (the avatar endpoint returns 404).
-function ChatAvatar({ name, version }: { name: string; version: number }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [name, version]);
-  return (
-    <span className="rm-msg-avatar" style={{ ["--hue" as string]: (hashString(name) % 360) }}>
-      {failed
-        // eslint-disable-next-line @next/next/no-img-element
-        ? name.charAt(0).toUpperCase()
-        : <img src={`/api/rooms/avatar?name=${encodeURIComponent(name)}&v=${version}`} alt="" onError={() => setFailed(true)} />}
-    </span>
-  );
-}
-
-async function resizeToJpeg(file: File, size = 96): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("no canvas");
-  const side = Math.min(bitmap.width, bitmap.height);
-  context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.75);
-}
-
-function formatTime(seconds: number) {
-  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
-  return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
-}
-
-function hashString(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  return hash;
-}
+import { useRoomSession, useRoomTracks } from "./use-room-session";
+import { useAudioSync } from "./use-audio-sync";
+import { useTipping, usePlaylistReorder } from "./use-tipping";
+import { Playlist, ChatLog, ChatAvatar } from "./room-panels";
+import { resizeToJpeg, formatTime, hashString } from "./room-types";
+import type { ChatMessage, Reaction, RoomState, RoomTrack } from "./room-types";
 
 export default function RoomClient({ displayName, previewVideoControls = false }: { displayName: string; previewVideoControls?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
-  const [tipAlerts, setTipAlerts] = useState<{ id: string; name: string; amountCents: number; song: string | null }[]>([]);
-  const seenTips = useRef<Set<string> | null>(null);
-  const [viewerCount, setViewerCount] = useState<number | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [viewerData, setViewerData] = useState<ViewerData | null>(null);
-  const [ended, setEnded] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const yielded = useRef(false);
-  const tabChannel = useRef<BroadcastChannel | null>(null);
-  const tabId = useRef(Math.random().toString(36).slice(2));
-  const [state, setState] = useState<RoomState | null>(null);
-  const [tracks, setTracks] = useState<RoomTrack[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [body, setBody] = useState("");
   const [notice, setNotice] = useState("Connecting to room...");
-  const [tipTrackId, setTipTrackId] = useState<string | null>(null);
-  const [tipBusy, setTipBusy] = useState(false);
-  const [coinBalance, setCoinBalance] = useState<number | null>(null);
-  const [coinSignedIn, setCoinSignedIn] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [roomTitle, setRoomTitle] = useState("Listening room");
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [roomDescription, setRoomDescription] = useState("");
-  const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
-  const [showAds, setShowAds] = useState(false);
-  const [houseAd, setHouseAd] = useState<HouseAd | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [viewerData, setViewerData] = useState<Awaited<ReturnType<typeof fetch>> extends never ? never : {
+    viewers: { name: string; spentCents: number; tipCents: number; tipCount: number; rank: number | null; joinedAt: string }[];
+    recentJoins: { name: string; joinedAt: string }[];
+    totalTipCents: number;
+  } | null>(null);
   const [pending, setPending] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [scrub, setScrub] = useState<number | null>(null);
-  const [reordering, setReordering] = useState(false);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [audioPaused, setAudioPaused] = useState(true);
-  const video = useRoomVideo(muted || volume === 0);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
+  const [ending, setEnding] = useState(false);
   const seenReactions = useRef<Set<string> | null>(null);
-  const clockOffset = useRef(0);
-  const lastCommandAt = useRef(0);
   const advancing = useRef(false);
-  const urlStamps = useRef<Map<string, { url: string; at: number }>>(new Map());
-  const [synced, setSynced] = useState(true);
-  const chatLogRef = useRef<HTMLDivElement>(null);
+
+  const video = useRoomVideo(muted || volume === 0);
+
+  const {
+    roomTitle, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
+    viewerCount, state, messages, reactions, ended, endSession,
+    coinSignedIn, coinBalance, refreshCoinBalance, lastCommandAt, clockOffset, setState,
+    tipAlerts, appendMessage, appendReaction,
+  } = useRoomSession(() => {
+    audioRef.current?.pause();
+    void video.stopAll();
+  }, setNotice);
+
+  const { tracks, setTracks, clearUrlStamps } = useRoomTracks();
+  const { syncAudio, synced, audioPaused, expectedPosition, onAudioPlay, onAudioPause } = useAudioSync({
+    state,
+    audioRef,
+    clockOffset,
+    onNotice: setNotice,
+  });
+  const { tipTrackId, setTipTrackId, tipBusy, startTip, startCoinTip } = useTipping({ onNotice: setNotice, refreshCoinBalance });
+  const { reordering, dragIndex, setDragIndex, moveTrack } = usePlaylistReorder(setNotice);
 
   const activeTrack = tracks.find((track) => track.id === state?.track_id) ?? null;
   const activeTrackIndex = tracks.findIndex((track) => track.id === state?.track_id);
@@ -130,189 +64,14 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     : activeTrackIndex >= 0
       ? tracks[(activeTrackIndex + 1) % tracks.length]
       : tracks[0];
-
-  useEffect(() => {
-    let active = true;
-    let timer: number | undefined;
-
-    async function refreshRoom() {
-      try {
-        const response = await fetch("/api/rooms/session", { cache: "no-store" });
-        const result = await response.json();
-        if (response.status === 410) {
-          if (active) { active = false; setEnded(true); audioRef.current?.pause(); void video.stopAll(); }
-          return;
-        }
-        if (!response.ok) {
-          if (active) setNotice(result.error || "Could not load room data.");
-        } else if (active) {
-          setRoomTitle(result.room.title);
-          setCoverUrl(result.room.coverUrl ?? null);
-          setRoomDescription(result.room.description ?? "");
-          if (typeof result.serverTime === "number") clockOffset.current = result.serverTime - Date.now();
-          const next = result.state as RoomState | null;
-          // A fresh local command wins over a poll that may have been read before it landed.
-          if (Date.now() - lastCommandAt.current > 2500) {
-            setState((current) => (
-              current && next && current.track_id === next.track_id && current.status === next.status &&
-              current.started_at === next.started_at && current.position_seconds === next.position_seconds
-                ? current
-                : next
-            ));
-          }
-          setMessages(result.messages);
-          setReactions(result.reactions ?? []);
-          setHostProfile(result.hostProfile);
-          setShowAds(Boolean(result.showAds));
-          setHouseAd(result.ad ?? null);
-          setIsHost(Boolean(result.isHost));
-          if (typeof result.viewerCount === "number") setViewerCount(result.viewerCount);
-          if (Array.isArray(result.tipAlerts)) {
-            const incoming = result.tipAlerts as { id: string; name: string; amountCents: number; song: string | null }[];
-            // Tips already paid when the page loads are marked seen so only new ones pop.
-            if (seenTips.current === null) {
-              seenTips.current = new Set(incoming.map((tip) => tip.id));
-            } else {
-              const seen = seenTips.current;
-              const fresh = incoming.filter((tip) => !seen.has(tip.id));
-              if (fresh.length > 0) {
-                fresh.forEach((tip) => seen.add(tip.id));
-                setTipAlerts((current) => [...current, ...fresh].slice(-3));
-                const ids = new Set(fresh.map((tip) => tip.id));
-                window.setTimeout(() => setTipAlerts((current) => current.filter((tip) => !ids.has(tip.id))), 7000);
-              }
-            }
-          }
-          setNotice("Connected to the listening room.");
-        }
-      } catch {
-        if (active) setNotice("Room service is unavailable. Try again shortly.");
-      } finally {
-        if (active) timer = window.setTimeout(refreshRoom, 2000);
-      }
-    }
-
-    void refreshRoom();
-    return () => { active = false; if (timer) window.clearTimeout(timer); };
-  }, []);
-
-  useEffect(() => {
-    const authClient = supabase;
-    if (!authClient) return;
-    let active = true;
-    async function loadCoinBalance() {
-      if (!authClient) return;
-      const { data, error } = await authClient.auth.getSession();
-      const accessToken = data.session?.access_token;
-      if (!active) return;
-      setCoinSignedIn(Boolean(accessToken && !error));
-      if (error || !accessToken) {
-        setCoinBalance(null);
-        return;
-      }
-      const response = await fetch("/api/coins/balance", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      const result = await response.json();
-      if (active && response.ok && typeof result.balance === "number") setCoinBalance(result.balance);
-    }
-    void loadCoinBalance().catch(() => {
-      if (active) setCoinBalance(null);
-    });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    async function loadTracks() {
-      try {
-        const response = await fetch("/api/rooms/tracks", { cache: "no-store" });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not load tracks.");
-        if (active) {
-          const now = Date.now();
-          const incoming = result.tracks as RoomTrack[];
-          // Re-signed URLs differ every poll; swapping src would reload the audio and make songs stall.
-          const merged = incoming.map((track) => {
-            const known = urlStamps.current.get(track.id);
-            if (known && now - known.at < 40 * 60_000) return { ...track, url: known.url };
-            urlStamps.current.set(track.id, { url: track.url, at: now });
-            return track;
-          });
-          setTracks((current) => (
-            current.length === merged.length && current.every((track, i) => (
-              track.id === merged[i].id && track.title === merged[i].title && track.url === merged[i].url &&
-              track.durationSeconds === merged[i].durationSeconds
-            )) ? current : merged
-          ));
-        }
-      } catch (error) {
-        if (active) setNotice(error instanceof Error ? error.message : "Could not load tracks.");
-      }
-    }
-    void loadTracks();
-    const refreshTimer = window.setInterval(loadTracks, 5_000);
-    return () => { active = false; window.clearInterval(refreshTimer); };
-  }, []);
+  const isPlaying = state?.status === "playing";
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume, activeTrack?.id]);
 
-  const expectedPosition = useCallback(() => {
-    if (!state) return 0;
-    return state.position_seconds + (
-      state.status === "playing" && state.started_at
-        ? Math.max(0, (Date.now() + clockOffset.current - new Date(state.started_at).getTime()) / 1000)
-        : 0
-    );
-  }, [state]);
-
-  const syncAudio = useCallback((hard = false) => {
-    const audio = audioRef.current;
-    if (!audio || !state || !state.track_id) return;
-    if (state.status !== "playing") {
-      audio.playbackRate = 1;
-      audio.pause();
-      if (audio.readyState > 0 && Math.abs(audio.currentTime - state.position_seconds) > 0.5) audio.currentTime = state.position_seconds;
-      setSynced(true);
-      return;
-    }
-    const drift = audio.currentTime - expectedPosition();
-    if (audio.readyState === 0) return;
-    if (hard || Math.abs(drift) > 1.2) {
-      audio.currentTime = expectedPosition();
-      audio.playbackRate = 1;
-    } else if (Math.abs(drift) > 0.25) {
-      // Small drift is corrected by gently speeding up or slowing down, which is inaudible.
-      audio.playbackRate = drift > 0 ? 0.97 : 1.03;
-    } else {
-      audio.playbackRate = 1;
-    }
-    setSynced(Math.abs(drift) < 1.2);
-    if (audio.paused && !yielded.current) void audio.play().catch(() => setNotice("Tap Play to start audio in this browser."));
-  }, [state, expectedPosition]);
-
+  // Reactions that arrive after the first load float up over the stage.
   useEffect(() => {
-    // Two open tabs of this room would play the same song twice, so the tab that starts last wins.
-    if (typeof BroadcastChannel === "undefined") return;
-    const channel = new BroadcastChannel("fi-room-audio");
-    tabChannel.current = channel;
-    channel.onmessage = (event) => {
-      if (event.data !== tabId.current) { yielded.current = true; audioRef.current?.pause(); }
-    };
-    return () => { channel.close(); tabChannel.current = null; };
-  }, []);
-
-  useEffect(() => {
-    syncAudio();
-    const timer = window.setInterval(() => syncAudio(), 1000);
-    return () => window.clearInterval(timer);
-  }, [syncAudio, activeTrack?.id]);
-
-  useEffect(() => {
-    // Reactions that arrive after the first load float up over the stage.
     if (!state) return;
     if (seenReactions.current === null) {
       seenReactions.current = new Set(reactions.map((reaction) => reaction.id));
@@ -332,13 +91,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     window.setTimeout(() => setFloaters((current) => current.filter((item) => !ids.has(item.id))), 3400);
   }, [reactions, state]);
 
-  useEffect(() => {
-    const log = chatLogRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [messages]);
-
   async function sendChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const body = (event.currentTarget.elements.namedItem("chat") as HTMLInputElement | null)?.value ?? "";
     if (!body.trim()) return;
     try {
       const response = await fetch("/api/rooms/chat", {
@@ -351,8 +106,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         setNotice(result.error || "Chat is temporarily unavailable.");
         return;
       }
-      setMessages((current) => [...current, result.message].slice(-100));
-      setBody("");
+      appendMessage(result.message);
+      event.currentTarget.reset();
       setNotice("Message sent.");
     } catch {
       setNotice("Chat is temporarily unavailable.");
@@ -371,7 +126,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         setNotice(result.error || "Reaction could not be sent.");
         return;
       }
-      setReactions((current) => [...current, result.reaction].slice(-50));
+      appendReaction(result.reaction);
     } catch {
       setNotice("Reaction service is temporarily unavailable.");
     }
@@ -442,19 +197,19 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     }
   }
 
-  async function setPlayback(status: "playing" | "paused", trackId = state?.track_id, positionSeconds = audioRef.current?.currentTime ?? 0) {
+  const setPlayback = useCallback(async (status: "playing" | "paused", trackId = state?.track_id, positionSeconds = audioRef.current?.currentTime ?? 0) => {
     if (!isHost || !trackId || !state) return;
     const previous = state;
     const sentAt = Date.now();
     lastCommandAt.current = sentAt;
     // Apply the command locally first so the controls respond instantly.
-    setState({
+    setState(() => ({
       ...state,
       track_id: trackId,
       status,
       position_seconds: positionSeconds,
       started_at: status === "playing" ? new Date(sentAt + clockOffset.current).toISOString() : null,
-    });
+    }));
     const audio = audioRef.current;
     if (audio && trackId === previous.track_id) {
       audio.currentTime = positionSeconds;
@@ -470,96 +225,23 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       });
       const result = await response.json();
       if (!response.ok) {
-        if (lastCommandAt.current === sentAt) setState(previous);
+        if (lastCommandAt.current === sentAt) setState(() => previous);
         setNotice(result.error || "Playback command failed.");
         return;
       }
       if (lastCommandAt.current === sentAt) {
-        setState(result.state);
+        setState(() => result.state);
         lastCommandAt.current = Date.now() - 1500;
       }
     } catch {
-      if (lastCommandAt.current === sentAt) setState(previous);
+      if (lastCommandAt.current === sentAt) setState(() => previous);
       setNotice("Playback service is temporarily unavailable.");
     } finally {
       setPending(false);
     }
-  }
+  }, [isHost, state, lastCommandAt, clockOffset, setState, setNotice]);
 
-  async function startTip(track: RoomTrack, amountCents: number) {
-    setTipBusy(true);
-    try {
-      const response = await fetch("/api/rooms/tips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trackId: track.id, amountCents }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        setNotice(result.error || "Could not start the tip.");
-        return;
-      }
-      window.location.assign(result.url);
-    } catch {
-      setNotice("Tip service is temporarily unavailable.");
-    } finally {
-      setTipBusy(false);
-    }
-  }
-
-  async function startCoinTip(track: RoomTrack, coins: number) {
-    setTipBusy(true);
-    try {
-      if (!supabase) {
-        setNotice("Listener sign-in is not configured.");
-        return;
-      }
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
-      if (error || !accessToken) {
-        setNotice("Sign in to your listener wallet to tip with coins.");
-        return;
-      }
-      const response = await fetch("/api/coins/tip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ trackId: track.id, coins }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        setNotice(result.error || "Could not tip with coins.");
-        return;
-      }
-      setNotice(`${coins} coins sent. Your song moves up to play next.`);
-      setTipTrackId(null);
-      const balanceResponse = await fetch("/api/coins/balance", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      const balanceResult = await balanceResponse.json();
-      if (balanceResponse.ok && typeof balanceResult.balance === "number") setCoinBalance(balanceResult.balance);
-    } catch {
-      setNotice("Coin wallet is temporarily unavailable.");
-    } finally {
-      setTipBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    const result = new URLSearchParams(window.location.search).get("tip");
-    if (!result) return;
-    window.history.replaceState(null, "", window.location.pathname);
-    setNotice(result === "ok"
-      ? "Thanks for the tip! Your song moves up to play next."
-      : "Your tip was not completed, so nothing was charged.");
-  }, []);
-
-  async function selectTrack(track: RoomTrack) {
-    if (!isHost) return;
-    await setPlayback(isPlaying ? "playing" : "paused", track.id, 0);
-  }
-
-  async function advanceTrack() {
+  const advanceTrack = useCallback(async () => {
     if (advancing.current) return;
     advancing.current = true;
     window.setTimeout(() => { advancing.current = false; }, 1500);
@@ -569,9 +251,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     }
     const nextTrack = tracks[(tracks.findIndex((track) => track.id === activeTrack.id) + 1) % tracks.length];
     await setPlayback("playing", nextTrack.id, 0);
-  }
+  }, [activeTrack, tracks, state?.track_id, setPlayback]);
 
-  async function previousTrack() {
+  const previousTrack = useCallback(async () => {
     if (!activeTrack) return;
     const index = tracks.findIndex((track) => track.id === activeTrack.id);
     // Like most players: restart the song first, go back only when already near the start.
@@ -580,44 +262,19 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       return;
     }
     await setPlayback(isPlaying ? "playing" : "paused", tracks[index - 1].id, 0);
-  }
+  }, [activeTrack, tracks, isPlaying, setPlayback]);
 
-  async function seekTo(seconds: number) {
+  const seekTo = useCallback(async (seconds: number) => {
     if (!activeTrack) return;
     const limit = activeTrack.durationSeconds ?? (duration || seconds);
     await setPlayback(isPlaying ? "playing" : "paused", activeTrack.id, Math.max(0, Math.min(seconds, limit)));
-  }
+  }, [activeTrack, duration, isPlaying, setPlayback]);
 
   async function commitScrub() {
     if (scrub === null) return;
     const target = scrub;
     setScrub(null);
     await seekTo(target);
-  }
-
-  async function moveTrack(from: number, to: number) {
-    if (!isHost || reordering || from === to || to < 0 || to >= tracks.length || !state) return;
-    const previous = tracks;
-    const reordered = [...tracks];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved);
-    setTracks(reordered);
-    setReordering(true);
-    try {
-      const response = await fetch("/api/host/rooms/tracks", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId: state.room_id, trackIds: reordered.map((track) => track.id) }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not reorder playlist.");
-      setNotice(`Moved ${moved.title}.`);
-    } catch (error) {
-      setTracks(previous);
-      setNotice(error instanceof Error ? error.message : "Could not reorder playlist.");
-    } finally {
-      setReordering(false);
-    }
   }
 
   useEffect(() => {
@@ -635,10 +292,11 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+    // Handlers are stable useCallbacks (see above), so this dep list is both
+    // fresh and non-churning: re-added only when playback state or handlers change.
+  }, [isHost, state?.status, setPlayback, seekTo, advanceTrack, previousTrack]);
 
   const hue = hashString(roomTitle) % 360;
-  const isPlaying = state?.status === "playing";
   const showLive = isPlaying || video.hasVideo;
   const trackLength = activeTrack?.durationSeconds ?? (duration || 0);
   const progress = trackLength > 0 ? Math.min(100, (currentTime / trackLength) * 100) : 0;
@@ -760,8 +418,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               src={activeTrack?.url || undefined}
               muted={muted}
               preload="metadata"
-              onPlay={() => { yielded.current = false; setAudioPaused(false); tabChannel.current?.postMessage(tabId.current); }}
-              onPause={() => setAudioPaused(true)}
+              onPlay={() => { onAudioPlay(); }}
+              onPause={onAudioPause}
               onTimeUpdate={(event) => {
                 const audio = event.currentTarget;
                 setCurrentTime(audio.currentTime);
@@ -771,7 +429,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               onLoadedMetadata={(event) => { setDuration(event.currentTarget.duration); syncAudio(true); }}
               onCanPlay={() => syncAudio()}
               onEnded={() => { if (isHost) void advanceTrack(); }}
-              onError={() => { urlStamps.current.clear(); setNotice("Audio stalled. Reloading the track..."); }}
+              onError={() => { clearUrlStamps(); setNotice("Audio stalled. Reloading the track..."); }}
             />
             {upNextTrack?.url && upNextTrack.id !== activeTrack?.id && (
               <audio src={upNextTrack.url} preload="auto" hidden aria-hidden="true" />
@@ -863,86 +521,27 @@ export default function RoomClient({ displayName, previewVideoControls = false }
             </div>
           )}
 
-          <section className="rm-playlist" aria-labelledby="playlist-title">
-            <h2 id="playlist-title">Up next <span className="small">{tracks.length} tracks</span></h2>
-            {upNextTrack && <p className="small" aria-live="polite">Next: <strong>{upNextTrack.title}</strong></p>}
-            {isHost && tracks.length > 1 && <p className="small">Drag tracks or use the arrows to reorder the playlist while live.</p>}
-            {tracks.length === 0 ? (
-              <p className="muted">No audio has been added to this room yet.</p>
-            ) : (
-              <ol>
-                {tracks.map((track, index) => {
-                  const current = state?.track_id === track.id;
-                  return (
-                    <li
-                      key={track.id}
-                      className={dragIndex === index ? "dragging" : ""}
-                      draggable={isHost && !reordering}
-                      onDragStart={() => setDragIndex(index)}
-                      onDragOver={(event) => { if (dragIndex !== null) event.preventDefault(); }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        if (dragIndex !== null) void moveTrack(dragIndex, index);
-                        setDragIndex(null);
-                      }}
-                      onDragEnd={() => setDragIndex(null)}
-                    >
-                      <button
-                        type="button"
-                        className={`rm-select ${current ? "current" : ""}`}
-                        aria-current={current ? "true" : undefined}
-                        disabled={!isHost || pending}
-                        onClick={() => void selectTrack(track)}
-                      >
-                        <span className="rm-thumb" style={{ ["--hue" as string]: (hashString(track.title) % 360) }}>
-                          {current && isPlaying ? "♪" : String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="rm-track-title">{track.title}</span>
-                        <span className="small">{track.durationSeconds ? formatTime(track.durationSeconds) : "Audio"}</span>
-                      </button>
-                      {!isHost && !current && (
-                        <button type="button" className="rm-boost" disabled={tipBusy} onClick={() => setTipTrackId(tipTrackId === track.id ? null : track.id)}>
-                          ⚡ Boost
-                        </button>
-                      )}
-                      {tipTrackId === track.id && !isHost && (
-                        <span className="rm-tip-menu" role="group" aria-label={`Tip to boost ${track.title}`}>
-                          <span className="small">Tip to play next:</span>
-                          {[300, 500, 1000].map((cents) => (
-                            <button key={cents} type="button" disabled={tipBusy} onClick={() => void startTip(track, cents)}>
-                            ${cents / 100} card
-                            </button>
-                          ))}
-                        <span className="small">
-                          {coinSignedIn
-                            ? `Wallet: ${coinBalance === null ? "checking..." : `${coinBalance.toLocaleString()} coins`}`
-                            : <Link href="/wallet">Sign in for coins</Link>}
-                        </span>
-                        {[30, 50, 100].map((coins) => (
-                          <button
-                            key={coins}
-                            type="button"
-                            disabled={tipBusy || !coinSignedIn || coinBalance === null || coinBalance < coins}
-                            onClick={() => void startCoinTip(track, coins)}
-                          >
-                            {coins} coins
-                          </button>
-                        ))}
-                        <Link href="/wallet" className="small">Buy coins</Link>
-                      </span>
-                      )}
-                      {isHost && (
-                        <span className="rm-reorder">
-                          <button type="button" aria-label={`Move ${track.title} up`} disabled={reordering || index === 0} onClick={() => void moveTrack(index, index - 1)}>▲</button>
-                          <button type="button" aria-label={`Move ${track.title} down`} disabled={reordering || index === tracks.length - 1} onClick={() => void moveTrack(index, index + 1)}>▼</button>
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </section>
+          <Playlist
+            tracks={tracks}
+            activeTrackId={state?.track_id ?? null}
+            isPlaying={isPlaying}
+            isHost={isHost}
+            pending={pending}
+            roomTitle={roomTitle}
+            upNextTrack={upNextTrack}
+            reordering={reordering}
+            dragIndex={dragIndex}
+            setDragIndex={setDragIndex}
+            tipTrackId={tipTrackId}
+            tipBusy={tipBusy}
+            coinSignedIn={coinSignedIn}
+            coinBalance={coinBalance}
+            onSelectTrack={(track) => void setPlayback(isPlaying ? "playing" : "paused", track.id, 0)}
+            onMoveTrack={(from, to) => void moveTrack(state?.room_id, tracks, setTracks, from, to)}
+            onToggleTipMenu={(trackId) => setTipTrackId(tipTrackId === trackId ? null : trackId)}
+            onStartCardTip={(track, cents) => void startTip(track, cents)}
+            onStartCoinTip={(track, coins) => void startCoinTip(track, coins)}
+          />
         </div>
 
 
@@ -992,30 +591,10 @@ export default function RoomClient({ displayName, previewVideoControls = false }
               )}
             </div>
           )}
-          <div className="rm-chatlog" ref={chatLogRef} aria-live="polite">
-            {messages.length === 0
-              ? <p className="muted">No messages yet. Start the conversation.</p>
-              : messages.map((message) => {
-                const fromHost = message.display_name === hostProfile?.display_name;
-                return (
-                  <div className={`rm-msg ${fromHost ? "host" : ""}`} key={message.id}>
-                    {fromHost && hostProfile?.avatar_url
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <span className="rm-msg-avatar"><img src={hostProfile.avatar_url} alt="" /></span>
-                      : <ChatAvatar name={message.display_name} version={avatarVersion} />}
-                    <div>
-                      <strong>{message.display_name}</strong>
-                      {fromHost && <span className="rm-verified">HOST</span>}
-                      <span className="rm-msg-time">{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                      <p>{message.body}</p>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+          <ChatLog messages={messages} hostProfile={hostProfile} avatarVersion={avatarVersion} />
           <form className="rm-chat-form" onSubmit={sendChat}>
             <label className="rm-sr" htmlFor="chat">Message as {displayName}</label>
-            <input id="chat" value={body} onChange={(event) => setBody(event.target.value)} maxLength={500} placeholder={`Chat as ${displayName}...`} required />
+            <input id="chat" name="chat" maxLength={500} placeholder={`Chat as ${displayName}...`} required />
             <button className="rm-send" type="submit" aria-label="Send message">➤</button>
           </form>
           <p className="small rm-notice" role="status">{notice}</p>
@@ -1025,3 +604,11 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     </main>
   );
 }
+
+const REACTIONS = [
+  { id: "heart", label: "Love", symbol: "♥" },
+  { id: "fire", label: "Fire", symbol: "🔥" },
+  { id: "clap", label: "Clap", symbol: "👏" },
+  { id: "laugh", label: "Laugh", symbol: "😂" },
+  { id: "wow", label: "Wow", symbol: "😮" },
+] as const;

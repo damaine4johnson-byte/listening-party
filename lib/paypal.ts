@@ -21,8 +21,10 @@ async function accessToken() {
     body: "grant_type=client_credentials",
     cache: "no-store",
   });
-  const result = await response.json() as { access_token?: string };
-  if (!response.ok || !result.access_token) throw new Error("PayPal authentication failed.");
+  const result = await response.json().catch(() => null) as { access_token?: string; message?: string; error_description?: string } | null;
+  if (!response.ok || !result?.access_token) {
+    throw new Error(result?.error_description ?? result?.message ?? `PayPal authentication failed (HTTP ${response.status}).`);
+  }
   return result.access_token;
 }
 
@@ -49,7 +51,9 @@ export async function sendPayPalPayouts(batchId: string, items: PayoutItem[]) {
     }),
     cache: "no-store",
   });
-  const result = await response.json() as { batch_header?: { payout_batch_id?: string }; message?: string };
-  if (!response.ok) throw new Error(result.message ?? "PayPal payout failed.");
-  return { paypalBatchId: result.batch_header?.payout_batch_id ?? null };
+  const result = await response.json().catch(() => null) as { batch_header?: { payout_batch_id?: string }; message?: string; name?: string } | null;
+  if (!response.ok) {
+    throw new Error(result?.message ?? result?.name ?? `PayPal payout failed (HTTP ${response.status}).`);
+  }
+  return { paypalBatchId: result?.batch_header?.payout_batch_id ?? null };
 }

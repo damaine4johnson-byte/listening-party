@@ -75,9 +75,13 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
         const signedResult = await signedResponse.json();
         if (!signedResponse.ok) throw new Error(signedResult.error || "Could not prepare audio upload.");
 
+        // Mobile browsers can report an empty file.type; Supabase rejects blank
+        // content types, so fall back to a generic audio MIME.
         const { error: uploadError } = await supabase.storage
           .from("tracks")
-          .uploadToSignedUrl(signedResult.path, signedResult.token, track.file, { contentType: track.file.type });
+          .uploadToSignedUrl(signedResult.path, signedResult.token, track.file, {
+            contentType: track.file.type || "audio/mpeg",
+          });
         if (uploadError) throw new Error(`Upload failed for ${track.title}. The file may exceed your Supabase plan's upload limit (50 MB on the free plan).`);
 
         const registerResponse = await fetch("/api/host/rooms/tracks", {

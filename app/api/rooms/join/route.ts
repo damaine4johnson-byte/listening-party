@@ -124,8 +124,12 @@ export async function POST(request: NextRequest) {
       }
     }
     const releasePaymentClaim = async () => {
-      if (claimedSessionId) {
-        await supabase.from("payment_orders").update({ claimed_at: null }).eq("order_id", claimedSessionId);
+      if (!claimedSessionId) return;
+      try {
+        const { error } = await supabase.from("payment_orders").update({ claimed_at: null }).eq("order_id", claimedSessionId);
+        if (error) throw error;
+      } catch (error) {
+        console.error("Payment claim release failed", getSafeErrorDetails(error));
       }
     };
 
@@ -159,7 +163,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Best-effort log for host analytics; a failure here must not block entry.
-    await supabase.from("room_visits").insert({ room_id: room.id, member_id: memberId, display_name: displayName });
+    const { error: visitError } = await supabase
+      .from("room_visits")
+      .insert({ room_id: room.id, member_id: memberId, display_name: displayName });
+    if (visitError) console.error("Room visit log failed", getSafeErrorDetails(visitError));
 
     const roomSessionToken = createRoomSessionToken(room.id, memberId, displayName);
     const response = NextResponse.json({

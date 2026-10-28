@@ -8,6 +8,7 @@ export default function ArtistSignupForm() {
   const [planTier, setPlanTier] = useState<ArtistTier>("free");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [audience, setAudience] = useState<"listener" | "artist" | null>(null);
 
   async function signUp() {
     setError("");
@@ -17,10 +18,13 @@ export default function ArtistSignupForm() {
     }
 
     setPending(true);
+    const redirectTo = audience === "listener"
+      ? `${window.location.origin}/wallet/callback?next=/profile`
+      : `${window.location.origin}/signup/callback?tier=${planTier}`;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/signup/callback?tier=${planTier}`,
+        redirectTo,
         queryParams: { prompt: "select_account" },
       },
     });
@@ -30,9 +34,55 @@ export default function ArtistSignupForm() {
     }
   }
 
+  if (audience === null) {
+    return (
+      <>
+        <h2 style={{ margin: "0 0 12px" }}>What brings you here?</h2>
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          <button
+            className="panel"
+            type="button"
+            style={{ cursor: "pointer", textAlign: "left" }}
+            onClick={() => setAudience("listener")}
+          >
+            <strong>I'm a listener</strong>
+            <span className="small" style={{ display: "block", marginTop: 8 }}>
+              Join private listening rooms, keep a coin wallet, and set up your chat profile.
+            </span>
+          </button>
+          <button
+            className="panel"
+            type="button"
+            style={{ cursor: "pointer", textAlign: "left" }}
+            onClick={() => setAudience("artist")}
+          >
+            <strong>I'm an artist</strong>
+            <span className="small" style={{ display: "block", marginTop: 8 }}>
+              Host your own listening rooms, upload your music, and earn from tips and entry fees.
+            </span>
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="small" type="button" style={{ background: "none", border: 0, cursor: "pointer", textDecoration: "underline" }} onClick={() => setAudience("listener")}>
+            Just want to listen? Pick listener.
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+      {audience === "listener" ? (
+        <>
+          <h2 style={{ margin: "0 0 8px" }}>Set up your listener account</h2>
+          <p className="small">
+            Sign in with Google to create your profile and coin wallet. You can always explore
+            artist tiers later from the host console.
+          </p>
+        </>
+      ) : (
+        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
         <legend className="small" style={{ marginBottom: 12 }}>Choose a tier</legend>
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {ARTIST_TIERS.map((tier) => (
@@ -70,13 +120,17 @@ export default function ArtistSignupForm() {
             </label>
           ))}
         </div>
-      </fieldset>
+        </fieldset>
+      )}
       <div className="row" style={{ marginTop: 18 }}>
         <button className="btn" type="button" onClick={() => void signUp()} disabled={pending}>
-          {pending ? "Opening Google..." : "Sign up with Google"}
+          {pending ? "Opening Google..." : audience === "listener" ? "Sign up as a listener" : "Sign up as an artist"}
+        </button>
+        <button className="btn secondary" type="button" disabled={pending} onClick={() => setAudience(null)}>
+          Back
         </button>
       </div>
-      {planTier !== "free" && <p className="small" role="status">Your paid tier will remain pending and room capacity stays at 100 until billing is activated.</p>}
+      {audience === "artist" && planTier !== "free" && <p className="small" role="status">Your paid tier will remain pending and room capacity stays at 100 until billing is activated.</p>}
       {error && <p className="small" role="alert">{error}</p>}
     </>
   );

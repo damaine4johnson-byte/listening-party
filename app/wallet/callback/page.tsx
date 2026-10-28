@@ -19,6 +19,9 @@ export default function ListenerWalletCallback() {
         if (active) setMessage("Google sign-in could not be completed. Return to the wallet and try again.");
         return;
       }
+      // Honor ?next=/profile so sign-ins started from other pages land back there.
+      const next = new URLSearchParams(window.location.search).get("next");
+      const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
       const response = await fetch("/api/coins/balance", {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
         cache: "no-store",
@@ -27,7 +30,7 @@ export default function ListenerWalletCallback() {
         if (active) setMessage("Your wallet could not be loaded. Please try again.");
         return;
       }
-      window.location.replace("/wallet");
+      window.location.replace(destination);
     }
     void finishSignIn().catch(() => {
       if (active) setMessage("Listener sign-in is temporarily unavailable.");
