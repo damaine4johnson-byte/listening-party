@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         entry_fee_cents: entryFeeCents,
         status: platformSettings.new_room_status,
       })
-      .select("id, title, description, slug, status, entry_fee_cents, created_at")
+      .select("id, title, description, slug, status, max_listeners, entry_fee_cents, created_at")
       .single();
 
     if (error || !room) {

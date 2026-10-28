@@ -335,7 +335,7 @@ export default function HostDashboard() {
         setNotice(result.error || "Could not create room.");
         return;
       }
-      setRooms((current) => [result.room, ...current]);
+      setRooms((current) => [{ coverUrl: null, ...result.room }, ...current]);
       setInviteCode(result.inviteCode);
       setInviteRoomTitle(result.room.title);
       const shareUrl = new URL("/", window.location.origin);
@@ -525,7 +525,7 @@ export default function HostDashboard() {
                   {room.description && <p className="small">{room.description}</p>}
                   <div className="hc-chips">
                     <span className="hc-chip">{room.slug}</span>
-                    <span className="hc-chip">Up to {room.max_listeners.toLocaleString()} listeners</span>
+                    <span className="hc-chip">Up to {(room.max_listeners ?? 0).toLocaleString()} listeners</span>
                     <span className={`hc-chip ${room.entry_fee_cents > 0 ? "paid" : ""}`}>
                       {room.entry_fee_cents > 0 ? `${formatFee(room.entry_fee_cents)} entry` : "Free entry"}
                     </span>
