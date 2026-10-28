@@ -85,11 +85,11 @@ export async function POST(request: NextRequest) {
 
     try {
       const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.8-flash")}:generateContent?key=${encodeURIComponent(geminiApiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.8-flash")}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(20_000),
+          headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
+          signal: AbortSignal.timeout(25_000),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemInstruction }] },
             contents: geminiMessages,
