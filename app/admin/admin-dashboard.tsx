@@ -177,6 +177,7 @@ function FeedAdmin({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const load = useCallback(() => guard(async () => setPosts((await api("/api/admin/feed")).posts)), [guard]);
   useEffect(() => { void load(); }, [load]);
   return (
@@ -190,10 +191,24 @@ function FeedAdmin({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
         </select>
         <input value={title} maxLength={120} disabled={!canEdit} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
         <textarea value={body} maxLength={1500} disabled={!canEdit} onChange={(e) => setBody(e.target.value)} placeholder="Text" />
+        <label className="muted">Photo or video (optional, up to 50 MB)
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" disabled={!canEdit}
+            onChange={(e) => { setFile(e.target.files?.[0] ?? null); }} />
+        </label>
         {kind === "testimonial" && <input value={author} maxLength={80} disabled={!canEdit} onChange={(e) => setAuthor(e.target.value)} placeholder="Who said it" />}
         <button disabled={!canEdit || !title.trim() || !body.trim()} onClick={() => guard(async () => {
-          await api("/api/admin/feed", "POST", { kind, title, body, author: kind === "testimonial" ? author : "" });
-          setTitle(""); setBody(""); setAuthor("");
+          let mediaPath: string | null = null;
+          if (file) {
+            const t = await api("/api/admin/feed/upload", "POST", { type: file.type, size: file.size });
+            const form = new FormData();
+            form.append("cacheControl", "3600");
+            form.append("", file);
+            const up = await fetch(t.signedUrl, { method: "PUT", headers: { "x-upsert": "false" }, body: form });
+            if (!up.ok) throw new Error("Upload failed. Try again.");
+            mediaPath = t.path;
+          }
+          await api("/api/admin/feed", "POST", { kind, title, body, author: kind === "testimonial" ? author : "", mediaPath });
+          setTitle(""); setBody(""); setAuthor(""); setFile(null);
           setPosts((await api("/api/admin/feed")).posts);
         }, "Posted to the feed.")}>Publish</button>
       </div>
@@ -201,6 +216,9 @@ function FeedAdmin({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
         <div className="card grid" key={p.id} style={{ marginBottom: 8 }}>
           <div><strong>{p.title}</strong> <span className="muted">{p.kind} · {when(p.created_at)}</span></div>
           <div>{p.body}</div>
+          {p.mediaUrl && (p.media_type === "video"
+            ? <video src={p.mediaUrl} controls preload="metadata" style={{ maxWidth: "100%", maxHeight: 260 }} />
+            : <img src={p.mediaUrl} alt="" style={{ maxWidth: "100%", maxHeight: 260 }} />)}
           <button className="danger" disabled={!canEdit} onClick={() => guard(async () => {
             await api("/api/admin/feed", "DELETE", { id: p.id });
             setPosts((cur) => cur.filter((x) => x.id !== p.id));
@@ -456,6 +474,11 @@ function Admins({ guard }: { guard: Guard }) {
         <span className="row" key="b">
           <button onClick={() => patch(a.id, { disabled: !a.disabled }, a.disabled ? "Admin enabled." : "Admin disabled.")}>{a.disabled ? "Enable" : "Disable"}</button>
           <button onClick={() => { const p = prompt(`New password for ${a.username} (12+ chars)`); if (p) void patch(a.id, { password: p }, "Password reset."); }}>Reset password</button>
+          <button className="danger" onClick={() => {
+            if (window.confirm(`Remove admin ${a.username}? They will lose all admin access.`)) {
+              void guard(async () => { await api("/api/admin/admins", "DELETE", { id: a.id }); await load(); }, "Admin removed.");
+            }
+          }}>Remove</button>
         </span>,
       ])} />
     </section>

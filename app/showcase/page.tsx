@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { createSupabaseAdmin } from "../../lib/supabase-admin";
+import { feedMediaUrl } from "../../lib/feed-media";
 import styles from "../home.module.css";
 import feed from "./feed.module.css";
 
@@ -14,17 +15,16 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-type Post = { id: string; kind: "info" | "testimonial" | "update"; title: string; body: string; author: string; created_at: string };
+type Post = { id: string; kind: "info" | "testimonial" | "update"; title: string; body: string; author: string; created_at: string; media_path?: string | null; media_type?: "image" | "video" | null };
 const LABELS = { info: "Information", testimonial: "Testimonial", update: "Website update" } as const;
 
 async function loadPosts(): Promise<Post[]> {
   try {
-    const { data, error } = await createSupabaseAdmin()
-      .from("feed_posts")
-      .select("id, kind, title, body, author, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    return error ? [] : (data as Post[]);
+    const db = createSupabaseAdmin();
+    let result = await db.from("feed_posts").select("id, kind, title, body, author, created_at, media_path, media_type").order("created_at", { ascending: false }).limit(50);
+    // Before the media migration runs, the media columns do not exist yet.
+    if (result.error) result = await db.from("feed_posts").select("id, kind, title, body, author, created_at").order("created_at", { ascending: false }).limit(50) as typeof result;
+    return result.error ? [] : (result.data as Post[]);
   } catch {
     return [];
   }
@@ -57,6 +57,9 @@ export default async function ShowcasePage() {
               <time dateTime={post.created_at}>{new Date(post.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}</time>
             </div>
             <h2>{post.title}</h2>
+            {post.media_path && (post.media_type === "video"
+              ? <video className={feed.media} src={feedMediaUrl(post.media_path) ?? undefined} controls playsInline preload="metadata" />
+              : <img className={feed.media} src={feedMediaUrl(post.media_path) ?? ""} alt="" loading="lazy" />)}
             <p>{post.kind === "testimonial" ? `“${post.body}”` : post.body}</p>
             {post.author && <div className={feed.author}>— {post.author}</div>}
           </article>

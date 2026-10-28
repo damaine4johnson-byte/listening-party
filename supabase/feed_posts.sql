@@ -12,3 +12,9 @@ alter table public.feed_posts enable row level security;
 revoke all on public.feed_posts from anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- Photo / video attachments on feed posts.
+alter table public.feed_posts add column if not exists media_path text;
+alter table public.feed_posts add column if not exists media_type text check (media_type in ('image', 'video'));
+
+notify pgrst, 'reload schema';

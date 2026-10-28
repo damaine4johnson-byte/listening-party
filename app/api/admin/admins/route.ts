@@ -65,3 +65,28 @@ export async function PATCH(request: NextRequest) {
   await audit(auth.admin.username, "admin_update", data.username, { ...update, password_hash: undefined, passwordReset: b.password !== undefined });
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: NextRequest) {
+  const auth = await authorize(request, "owner", true);
+  if ("response" in auth) return auth.response;
+  const b = (await request.json().catch(() => null)) as { id?: unknown } | null;
+  if (typeof b?.id !== "string" || !/^[0-9a-f-]{36}$/i.test(b.id)) return NextResponse.json({ error: "Invalid admin." }, { status: 400 });
+
+  const db = createSupabaseAdmin();
+  const { data: target, error: findError } = await db.from("admin_users").select("id, username, role, disabled").eq("id", b.id).maybeSingle();
+  if (findError) return NextResponse.json({ error: "Could not remove admin." }, { status: 503 });
+  if (!target) return NextResponse.json({ error: "Admin not found." }, { status: 404 });
+  if (target.username === auth.admin.username) return NextResponse.json({ error: "You cannot remove your own account." }, { status: 409 });
+
+  // Never leave the platform without a way to manage admins.
+  if (target.role === "owner" && !target.disabled && !envAdmin()) {
+    const { count } = await db.from("admin_users").select("id", { count: "exact", head: true })
+      .eq("role", "owner").eq("disabled", false).neq("id", target.id);
+    if (!count) return NextResponse.json({ error: "You cannot remove the last active owner." }, { status: 409 });
+  }
+
+  const { error } = await db.from("admin_users").delete().eq("id", target.id);
+  if (error) return NextResponse.json({ error: "Could not remove admin." }, { status: 503 });
+  await audit(auth.admin.username, "admin_delete", target.username, { role: target.role });
+  return NextResponse.json({ ok: true });
+}
