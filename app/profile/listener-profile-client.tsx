@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import LoginDetails from "./login-details";
 import { supabase } from "../../lib/supabase";
 import { nextTipTier, TIP_TIERS, tipTierForCents } from "../../lib/tip-tiers";
 import { TipMedal } from "../room/tip-medal";
@@ -304,6 +305,8 @@ export default function ListenerProfileClient() {
           </div>
         </form>
       )}
+
+      <LoginDetails />
 
       {notice && <p className="small" role="status">{notice}</p>}
       {error && <p className="small" role="alert">{error}</p>}

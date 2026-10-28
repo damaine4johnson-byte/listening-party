@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getListenerUser } from "../../../../lib/listener-auth";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
@@ -18,7 +19,8 @@ function cleanAvatarUrl(value: unknown) {
   return trimmed;
 }
 
-async function loadProfile(userId: string) {
+async function loadProfile(user: User) {
+  const userId = user.id;
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("listener_profiles")
@@ -26,6 +28,14 @@ async function loadProfile(userId: string) {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return { error: "Could not load your profile." as const };
+  // First Google sign-in: save their Google details so the profile exists from day one.
+  if (!data) {
+    const meta = user.user_metadata as { full_name?: unknown; name?: unknown; avatar_url?: unknown; picture?: unknown };
+    const name = cleanDisplayName(meta.full_name ?? meta.name) || (user.email ?? "").split("@")[0].slice(0, 32);
+    const picture = cleanAvatarUrl(meta.avatar_url ?? meta.picture) || "";
+    await supabase.from("listener_profiles").upsert({ user_id: userId, display_name: name, avatar_url: picture }, { onConflict: "user_id", ignoreDuplicates: true });
+    return { profile: { displayName: name, bio: "", avatarUrl: picture } };
+  }
   // First visit: derive the display name from the Google account so the
   // profile is never empty on first load.
   return {
@@ -43,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const [result, balanceResult] = await Promise.all([
-      loadProfile(user.id),
+      loadProfile(user),
       createSupabaseAdmin()
         .from("listener_coin_wallets")
         .select("balance_coins")
