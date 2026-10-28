@@ -860,3 +860,5 @@
 }
 .rm-invite { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rm-invite code { font-size: 20px; font-weight: 800; letter-spacing: .12em; padding: 4px 12px; border-radius: 10px; background: rgb(255 255 255 / 10%); user-select: all; }
+.rm-video.mirrored { transform: scaleX(-1); }
+.rm-mirror { position: absolute; top: 12px; right: 12px; z-index: 7; padding: 6px 10px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 30%); background: rgb(0 0 0 / 55%); color: #fff; font-size: 12px; cursor: pointer; }

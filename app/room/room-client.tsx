@@ -35,8 +35,15 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [scrub, setScrub] = useState<number | null>(null);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const [ending, setEnding] = useState(false);
+  const [mirrored, setMirrored] = useState(false);
   const seenReactions = useRef<Set<string> | null>(null);
   const advancing = useRef(false);
+
+  useEffect(() => { setMirrored(window.localStorage.getItem("room-video-mirrored") === "1"); }, []);
+  const toggleMirror = () => setMirrored((current) => {
+    window.localStorage.setItem("room-video-mirrored", current ? "0" : "1");
+    return !current;
+  });
 
   const video = useRoomVideo(muted || volume === 0);
 
@@ -346,8 +353,13 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           <div className={`rm-stage ${video.hasVideo ? "has-video" : ""}`} style={{ ["--hue" as string]: hue }}>
             {coverUrl && <img className="rm-cover" src={coverUrl} alt="" aria-hidden="true" />}
             <div className="rm-glow" aria-hidden="true" />
-            <video ref={video.videoRef} className="rm-video" autoPlay playsInline muted aria-label="Host live video" />
+            <video ref={video.videoRef} className={`rm-video ${mirrored ? "mirrored" : ""}`} autoPlay playsInline muted aria-label="Host live video" />
             <div ref={video.audioBoxRef} hidden />
+            {video.hasVideo && (
+              <button className="rm-mirror" type="button" aria-pressed={mirrored} onClick={toggleMirror}>
+                ⇋ {mirrored ? "Unmirror" : "Mirror"} video
+              </button>
+            )}
             <div className="rm-badges">
               <span className={`rm-live ${showLive ? "on" : ""}`}>{showLive ? "● LIVE" : "❚❚ PAUSED"}</span>
               <span className="rm-viewers">👥 {viewerCount ?? participants} in the room</span>

@@ -92,11 +92,6 @@ export default function ShowcasePage() {
 
       <footer className={styles.footer}>
         <span>FAMOUS INTROVERT RECORDS <span className={styles.footerDot}>·</span> PRIVATE BY DESIGN</span>
-        <nav aria-label="Footer">
-          <Link href="/">Home</Link>
-          <Link href="/host">Host access</Link>
-          <Link href="/signup">Artist access</Link>
-        </nav>
       </footer>
     </main>
   );

@@ -78,14 +78,6 @@ export default function Home() {
 
       <footer className={styles.footer}>
         <span>FAMOUS INTROVERT RECORDS <span className={styles.footerDot}>·</span> PRIVATE BY DESIGN</span>
-        <nav aria-label="Footer">
-          <Link href="/showcase">The listening room</Link>
-          <Link href="/wallet">Listener coins</Link>
-          <Link href="/about">About</Link>
-          <Link href="/help">Help & support</Link>
-          <Link href="/host">Host access</Link>
-          <Link href="/signup">Artist access</Link>
-        </nav>
       </footer>
     </main>
   );
