@@ -20,7 +20,6 @@ export default function ListenerSigninPage() {
         <p>One Google account holds your coins, your profile, and your seat in the room.</p>
       </section>
       <ListenerSigninForm />
-      <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>
     </main>
   );
 }

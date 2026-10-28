@@ -149,7 +149,7 @@ function PlaylistRow(props: PlaylistRowProps) {
   );
 }
 
-function TipMenu({ track, coinSignedIn, coinBalance, tipBusy, onStartCardTip, onStartCoinTip }: {
+export function TipMenu({ track, coinSignedIn, coinBalance, tipBusy, onStartCardTip, onStartCoinTip }: {
   track: RoomTrack;
   coinSignedIn: boolean;
   coinBalance: number | null;
@@ -157,29 +157,41 @@ function TipMenu({ track, coinSignedIn, coinBalance, tipBusy, onStartCardTip, on
   onStartCardTip: (track: RoomTrack, cents: number) => void;
   onStartCoinTip: (track: RoomTrack, coins: number) => void;
 }) {
+  const [custom, setCustom] = useState("");
+  const dollars = Number(custom);
+  const validCustom = Number.isFinite(dollars) && dollars >= 1 && dollars <= 10_000;
+  const customCents = Math.round(dollars * 100);
+  const customCoins = Math.round(dollars * 10);
   return (
     <span className="rm-tip-menu" role="group" aria-label={`Tip to boost ${track.title}`}>
-      <span className="small">Tip to play next:</span>
-      {[300, 500, 1000].map((cents) => (
-        <button key={cents} type="button" disabled={tipBusy} onClick={() => onStartCardTip(track, cents)}>
-          ${cents / 100} card
-        </button>
-      ))}
+      <span className="small">Enter any amount from $1 to $10,000:</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={1}
+        max={10000}
+        step="0.01"
+        value={custom}
+        placeholder="Amount in $"
+        aria-label="Custom tip amount in dollars"
+        onChange={(event) => setCustom(event.target.value)}
+        style={{ width: 110 }}
+      />
+      <button type="button" disabled={tipBusy || !validCustom} onClick={() => onStartCardTip(track, customCents)}>
+        Tip by card
+      </button>
       <span className="small">
         {coinSignedIn
           ? `Wallet: ${coinBalance === null ? "checking..." : `${coinBalance.toLocaleString()} coins`}`
           : "Sign in for coins"}
       </span>
-      {[30, 50, 100].map((coins) => (
-        <button
-          key={coins}
-          type="button"
-          disabled={tipBusy || !coinSignedIn || coinBalance === null || coinBalance < coins}
-          onClick={() => onStartCoinTip(track, coins)}
-        >
-          {coins} coins
-        </button>
-      ))}
+      <button
+        type="button"
+        disabled={tipBusy || !validCustom || !coinSignedIn || coinBalance === null || coinBalance < customCoins}
+        onClick={() => onStartCoinTip(track, customCoins)}
+      >
+        Tip with coins
+      </button>
     </span>
   );
 }

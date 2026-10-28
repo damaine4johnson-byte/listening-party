@@ -1,0 +1,14 @@
+.feed { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; display: grid; gap: 16px; color: #fff; }
+.feed h1 { margin: 0; font-size: clamp(32px, 6vw, 48px); }
+.lead { margin: 0 0 12px; opacity: .75; }
+.empty { opacity: .7; }
+.post { padding: 20px 22px; border-radius: 18px; background: rgb(255 255 255 / 6%); border: 1px solid rgb(255 255 255 / 14%); }
+.post h2 { margin: 8px 0; font-size: 22px; }
+.post p { margin: 0; line-height: 1.55; white-space: pre-wrap; opacity: .92; }
+.meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; opacity: .8; }
+.tag { padding: 3px 10px; border-radius: 999px; background: rgb(255 61 139 / 25%); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.update .tag { background: rgb(58 160 255 / 28%); }
+.testimonial { border-color: rgb(255 201 51 / 45%); }
+.testimonial .tag { background: rgb(255 201 51 / 28%); }
+.testimonial p { font-style: italic; font-size: 18px; }
+.author { margin-top: 10px; font-weight: 700; }

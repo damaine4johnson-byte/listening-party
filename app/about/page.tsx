@@ -119,7 +119,6 @@ export default async function AboutPage() {
       </section>
       <footer className={styles.footer}>
         <span>FAMOUS INTROVERT RECORDS · EXCLUSIVE LISTENS</span>
-        <Link href="/help">Need a hand? Visit Help & support</Link>
       </footer>
     </main>
   );

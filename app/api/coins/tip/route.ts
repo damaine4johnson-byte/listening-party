@@ -5,7 +5,9 @@ import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { boostTrack } from "../../../../lib/room-queue";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TIP_COINS = new Set([30, 50, 100]);
+// 10 coins = $1, so this covers $1 to $10,000.
+const MIN_TIP_COINS = 10;
+const MAX_TIP_COINS = 100_000;
 
 export async function POST(request: NextRequest) {
   if (request.headers.get("origin") !== request.nextUrl.origin) {
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Choose a song and coin amount." }, { status: 400 });
   }
   if (typeof input.trackId !== "string" || !UUID.test(input.trackId) ||
-      typeof input.coins !== "number" || !TIP_COINS.has(input.coins)) {
+      !Number.isInteger(input.coins) || (input.coins as number) < MIN_TIP_COINS || (input.coins as number) > MAX_TIP_COINS) {
     return NextResponse.json({ error: "Choose a valid song and coin amount." }, { status: 400 });
   }
 
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       p_track_id: track.id,
       p_member_id: session.memberId,
       p_display_name: session.displayName,
-      p_coins: input.coins,
+      p_coins: input.coins as number,
     });
     if (error || !orderId) {
       if (error?.message.includes("Insufficient coin balance")) {

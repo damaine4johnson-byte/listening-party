@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Choose a song." }, { status: 400 });
   }
   if (!Number.isInteger(amountCents) || amountCents < MIN_TIP_CENTS || amountCents > MAX_TIP_CENTS) {
-    return NextResponse.json({ error: "Tips must be between $2 and $200." }, { status: 400 });
+    return NextResponse.json({ error: "Tips must be between $1 and $10,000." }, { status: 400 });
   }
 
   try {

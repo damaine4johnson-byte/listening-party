@@ -307,10 +307,6 @@ export default function ListenerProfileClient() {
 
       {notice && <p className="small" role="status">{notice}</p>}
       {error && <p className="small" role="alert">{error}</p>}
-      <div className="row">
-        <Link href="/wallet" className="small">Coin wallet</Link>
-        <Link href="/" className="small">Back to rooms</Link>
-      </div>
     </section>
   );
 }

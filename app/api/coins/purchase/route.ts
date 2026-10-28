@@ -3,7 +3,9 @@ import { getListenerUser } from "../../../../lib/listener-auth";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { createWipayCheckout, isWipayConfigured } from "../../../../lib/wipay";
 
-const PACKS = { "50": { cents: 500, coins: 50 }, "100": { cents: 1000, coins: 100 }, "200": { cents: 2000, coins: 200 } } as const;
+const PACKS = { "50": { cents: 500, coins: 50 }, "100": { cents: 1000, coins: 100 }, "200": { cents: 2000, coins: 200 },
+  "500": { cents: 5000, coins: 500 }, "1000": { cents: 10000, coins: 1000 }, "2500": { cents: 25000, coins: 2500 },
+  "5000": { cents: 50000, coins: 5000 }, "10000": { cents: 100000, coins: 10000 } } as const;
 
 export async function POST(request: NextRequest) {
   if (request.headers.get("origin") !== request.nextUrl.origin) {

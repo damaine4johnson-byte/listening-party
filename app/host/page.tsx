@@ -24,7 +24,6 @@ export default async function HostPage() {
       </header>
       <HostHero />
       {isHost ? <HostDashboard /> : <HostLogin />}
-      <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>
     </main>
   );
 }

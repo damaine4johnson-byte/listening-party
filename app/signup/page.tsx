@@ -18,7 +18,6 @@ export default function ArtistSignupPage() {
         <p>Choose how you want to use Famous Introvert, then sign in with Google.</p>
       </section>
       <ArtistSignupForm />
-      <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>
     </main>
   );
 }

@@ -20,7 +20,6 @@ export default function ListenerProfilePage() {
         <p>Edit how you appear in room chat and check your coin balance.</p>
       </section>
       <ListenerProfileClient />
-      <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>
     </main>
   );
 }

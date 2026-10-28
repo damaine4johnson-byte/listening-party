@@ -18,7 +18,6 @@ export default function WalletPage() {
         <p>Buy coins for room entry and song boosts. 1 USD = 10 coins.</p>
       </section>
       <WalletClient />
-      <footer className="footer"><Link href="/">Back to listening rooms</Link></footer>
     </main>
   );
 }

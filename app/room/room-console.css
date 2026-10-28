@@ -862,3 +862,7 @@
 .rm-invite code { font-size: 20px; font-weight: 800; letter-spacing: .12em; padding: 4px 12px; border-radius: 10px; background: rgb(255 255 255 / 10%); user-select: all; }
 .rm-video.mirrored { transform: scaleX(-1); }
 .rm-mirror { position: absolute; top: 12px; right: 12px; z-index: 7; padding: 6px 10px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 30%); background: rgb(0 0 0 / 55%); color: #fff; font-size: 12px; cursor: pointer; }
+.rm-tip-fab { position: fixed; right: 16px; bottom: 20px; z-index: 80; padding: 14px 22px; border-radius: 999px; border: 0; font: inherit; font-size: 17px; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(135deg, #ff3d8b, #7c4dff); box-shadow: 0 10px 30px rgb(124 77 255 / 55%); }
+.rm-tip-dialog-backdrop { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 65%); }
+.rm-tip-dialog { width: min(480px, 100%); max-height: 80vh; overflow: auto; display: grid; gap: 12px; padding: 20px; border-radius: 18px; background: #15101f; border: 1px solid rgb(255 255 255 / 16%); }
+.rm-tip-dialog-track { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid rgb(255 255 255 / 10%); }

@@ -45,10 +45,6 @@ export default function ListenerSigninForm() {
       </button>
       {error && <p className="small" role="alert">{error}</p>}
       <p className="small">Your Google account is used only for sign-in and your wallet.</p>
-      <div className="row">
-        <Link href="/wallet" className="small">Coin wallet</Link>
-        <Link href="/" className="small">Back to rooms</Link>
-      </div>
     </section>
   );
 }

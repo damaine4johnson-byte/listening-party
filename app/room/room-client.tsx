@@ -13,7 +13,7 @@ import { useTipping, usePlaylistReorder } from "./use-tipping";
 import { useBackgroundPlayback } from "./use-background-playback";
 import TipCelebration from "./tip-celebration";
 import { TipBadge } from "./tip-medal";
-import { Playlist, ChatLog, ChatAvatar } from "./room-panels";
+import { Playlist, TipMenu, ChatLog, ChatAvatar } from "./room-panels";
 import { resizeToJpeg, formatTime, hashString } from "./room-types";
 import type { ChatMessage, Reaction, RoomState, RoomTrack } from "./room-types";
 
@@ -36,6 +36,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const [ending, setEnding] = useState(false);
   const [mirrored, setMirrored] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
   const seenReactions = useRef<Set<string> | null>(null);
   const advancing = useRef(false);
 
@@ -347,6 +348,39 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       </header>
 
       <TipCelebration alerts={tipAlerts} />
+
+      {!isHost && (
+        <>
+          <button className="rm-tip-fab" type="button" onClick={() => setTipOpen(true)}>💸 Tip</button>
+          {tipOpen && (
+            <div className="rm-tip-dialog-backdrop" onClick={() => setTipOpen(false)}>
+              <div className="rm-tip-dialog" role="dialog" aria-modal="true" aria-label="Send a tip" onClick={(event) => event.stopPropagation()}>
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <strong>Send a tip</strong>
+                  <button className="btn secondary" type="button" onClick={() => setTipOpen(false)}>Close</button>
+                </div>
+                <p className="small">Pick a song to boost. Your tip moves it up to play next and shows up on screen for the whole room.</p>
+                {tracks.filter((track) => track.id !== state?.track_id).map((track) => (
+                  <div key={track.id} className="rm-tip-dialog-track">
+                    <strong>{track.title}</strong>
+                    <TipMenu
+                      track={track}
+                      coinSignedIn={coinSignedIn}
+                      coinBalance={coinBalance}
+                      tipBusy={tipBusy}
+                      onStartCardTip={(item, cents) => void startTip(item, cents)}
+                      onStartCoinTip={(item, coins) => void startCoinTip(item, coins)}
+                    />
+                  </div>
+                ))}
+                {tracks.filter((track) => track.id !== state?.track_id).length === 0 && (
+                  <p className="small">There are no other songs in the queue to boost yet.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="rm-layout">
         <div className="rm-main">

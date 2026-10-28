@@ -4,8 +4,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 export const PLATFORM_FEE_PERCENT = 10;
 export const MIN_ENTRY_FEE_CENTS = 100;
 export const MAX_ENTRY_FEE_CENTS = 100_000;
-export const MIN_TIP_CENTS = 200;
-export const MAX_TIP_CENTS = 20_000;
+export const MIN_TIP_CENTS = 100;
+export const MAX_TIP_CENTS = 1_000_000;
 
 export class PaymentsNotConfiguredError extends Error {}
 

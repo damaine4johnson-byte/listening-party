@@ -28,7 +28,6 @@ export default function HelpPage() {
       <HelpChat />
       <footer className={styles.footer}>
         <span>FAMOUS INTROVERT RECORDS · EXCLUSIVE LISTENS</span>
-        <Link href="/about">About Exclusive Listens</Link>
       </footer>
     </main>
   );

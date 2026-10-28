@@ -6,12 +6,10 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Home" },
-  { href: "/showcase", label: "The listening room" },
-  { href: "/signin", label: "Listener sign in" },
-  { href: "/profile", label: "My profile" },
-  { href: "/wallet", label: "Listener coins" },
-  { href: "/host", label: "Host access" },
-  { href: "/signup", label: "Artist access" },
+  { href: "/showcase", label: "The listening room (feed)" },
+  { href: "/host", label: "Rooms" },
+  { href: "/host/profile", label: "Artist profile" },
+  { href: "/profile", label: "Listener profile" },
   { href: "/about", label: "About" },
   { href: "/help", label: "Help & support" },
 ];

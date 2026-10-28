@@ -8,6 +8,11 @@ const PACKS = [
   { coins: 50, dollars: 5 },
   { coins: 100, dollars: 10 },
   { coins: 200, dollars: 20 },
+  { coins: 500, dollars: 50 },
+  { coins: 1000, dollars: 100 },
+  { coins: 2500, dollars: 250 },
+  { coins: 5000, dollars: 500 },
+  { coins: 10000, dollars: 1000 },
 ] as const;
 
 export default function WalletClient() {

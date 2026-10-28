@@ -27,7 +27,6 @@ export default async function HostProfilePage() {
         <h1>Your profile.</h1>
       </section>
       <HostProfileForm />
-      <footer className="footer"><Link href="/host">Back to host console</Link></footer>
     </main>
   );
 }
