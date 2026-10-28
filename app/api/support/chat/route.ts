@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { faqReply } from "../../../../lib/support-faq";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -83,31 +84,35 @@ export async function POST(request: NextRequest) {
       parts: [{ text: message.content }],
     }));
 
-    try {
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.8-flash")}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
-          signal: AbortSignal.timeout(25_000),
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            contents: geminiMessages,
-            generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "OBJECT",
-                properties: { reply: { type: "STRING" }, escalate: { type: "BOOLEAN" } },
-                required: ["reply", "escalate"],
+    const models = [process.env.GEMINI_MODEL || "gemini-3.1-flash-lite", "gemini-flash-latest"];
+    for (const model of models) {
+      try {
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
+            signal: AbortSignal.timeout(12_000),
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemInstruction }] },
+              contents: geminiMessages,
+              generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: "OBJECT",
+                  properties: { reply: { type: "STRING" }, escalate: { type: "BOOLEAN" } },
+                  required: ["reply", "escalate"],
+                },
               },
-            },
-          }),
-        },
-      );
-      if (geminiResponse.ok) result = getReply(await geminiResponse.json());
-      else console.error("Gemini support request failed.", { status: geminiResponse.status });
-    } catch (error) {
-      console.error("Gemini support request could not be completed.", error instanceof Error ? `${error.name}: ${error.message}` : "unknown");
+            }),
+          },
+        );
+        if (geminiResponse.ok) result = getReply(await geminiResponse.json());
+        else console.error("Gemini support request failed.", { model, status: geminiResponse.status });
+      } catch (error) {
+        console.error("Gemini support request could not be completed.", model, error instanceof Error ? `${error.name}: ${error.message}` : "unknown");
+      }
+      if (result) break;
     }
   }
 
