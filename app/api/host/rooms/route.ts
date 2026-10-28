@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { generateInviteCode, normalizeInviteCode } from "../../../../lib/invite-code";
 import { NextRequest, NextResponse } from "next/server";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
       }
     }
     const platformSettings = await getPlatformSettings();
-    const inviteCode = randomBytes(24).toString("base64url");
-    const inviteCodeHash = createHash("sha256").update(inviteCode).digest("hex");
+    const inviteCode = generateInviteCode();
+    const inviteCodeHash = createHash("sha256").update(normalizeInviteCode(inviteCode)).digest("hex");
     const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "room";
     const slug = `${titleSlug}-${randomBytes(4).toString("hex")}`;
     const { data: room, error } = await supabase

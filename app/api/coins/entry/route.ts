@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getListenerUser } from "../../../../lib/listener-auth";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { normalizeInviteCode } from "../../../../lib/invite-code";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     const { data: room, error } = await supabase
       .from("rooms")
       .select("id, status, host_id, max_listeners, entry_fee_cents")
-      .eq("invite_code_hash", createHash("sha256").update(code).digest("hex"))
+      .eq("invite_code_hash", createHash("sha256").update(normalizeInviteCode(code)).digest("hex"))
       .maybeSingle();
     if (error) return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
     if (!room || room.status === "ended") return NextResponse.json({ error: "That invitation code is invalid or the room has ended." }, { status: 401 });

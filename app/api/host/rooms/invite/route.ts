@@ -1,8 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { HOST_SESSION_COOKIE } from "../../../../../lib/host-session";
 import { createSupabaseAdmin } from "../../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../../lib/host-profile";
+import { generateInviteCode, normalizeInviteCode } from "../../../../../lib/invite-code";
 
 // Issues a fresh invite code for a room the host owns. Only the hash is stored, so the
 // previous code stops working and the new one is shown exactly once.
@@ -17,8 +18,8 @@ export async function POST(request: NextRequest) {
   const roomId = typeof input?.roomId === "string" ? input.roomId : "";
   if (!/^[0-9a-f-]{36}$/i.test(roomId)) return NextResponse.json({ error: "Choose a room." }, { status: 400 });
 
-  const inviteCode = randomBytes(24).toString("base64url");
-  const inviteCodeHash = createHash("sha256").update(inviteCode).digest("hex");
+  const inviteCode = generateInviteCode();
+  const inviteCodeHash = createHash("sha256").update(normalizeInviteCode(inviteCode)).digest("hex");
 
   try {
     const { data, error } = await createSupabaseAdmin()

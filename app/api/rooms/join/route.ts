@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 import { getListenerUser } from "../../../../lib/listener-auth";
+import { normalizeInviteCode } from "../../../../lib/invite-code";
 
 function getSupabaseHost() {
   const url = process.env.NEXT_PUBLIC_APP_SUPABASE_URL ?? process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createSupabaseAdmin();
-    const inviteCodeHash = createHash("sha256").update(code).digest("hex");
+    const inviteCodeHash = createHash("sha256").update(normalizeInviteCode(code)).digest("hex");
     const { data: room, error } = await supabase
       .from("rooms")
       .select("id, title, status, host_id, entry_fee_cents")
