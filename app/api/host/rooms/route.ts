@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Room could not be created." }, { status: 503 });
     }
 
-    const { error: stateError } = await supabase
+    // Best effort: readers treat a missing room_state row as "paused", so a failure here must
+    // not report the (already created) room as failed.
+    await supabase
       .from("room_state")
-      .insert({ room_id: room.id, status: "paused", position_seconds: 0 });
-    if (stateError) {
-      await supabase.from("rooms").delete().eq("id", room.id);
-      return NextResponse.json({ error: "Room state could not be initialized." }, { status: 503 });
-    }
+      .upsert({ room_id: room.id, status: "paused", position_seconds: 0 }, { onConflict: "room_id", ignoreDuplicates: true });
+    // Stored so the host can view the code again; requires supabase/invite_code_display.sql.
+    await supabase.from("rooms").update({ invite_code: inviteCode }).eq("id", room.id);
 
     return NextResponse.json({ room, inviteCode }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {

@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { nextTipTier, TIP_TIERS, tipTierForCents } from "../../lib/tip-tiers";
+import { TipMedal } from "../room/tip-medal";
+import "./profile.css";
+
+const ACCENTS = ["#ff3d8b", "#7c4dff", "#18c4b0", "#ffb020", "#3aa0ff", "#ff6b3d"];
+const ACCENT_KEY = "listener-accent";
 
 type Profile = { displayName: string; bio: string; avatarUrl: string };
 
@@ -20,6 +26,19 @@ export default function ListenerProfileClient() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [totalTippedCents, setTotalTippedCents] = useState(0);
+  const [tipCount, setTipCount] = useState(0);
+  const [accent, setAccent] = useState(ACCENTS[0]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(ACCENT_KEY);
+    if (saved && ACCENTS.includes(saved)) setAccent(saved);
+  }, []);
+
+  function chooseAccent(color: string) {
+    setAccent(color);
+    window.localStorage.setItem(ACCENT_KEY, color);
+  }
 
   const loadProfile = useCallback(async (accessToken: string) => {
     const response = await fetch("/api/listeners/profile", {
@@ -34,6 +53,8 @@ export default function ListenerProfileClient() {
       avatarUrl: result.profile.avatarUrl,
     };
     setEmail(result.email ?? "");
+    setTotalTippedCents(typeof result.stats?.totalTippedCents === "number" ? result.stats.totalTippedCents : 0);
+    setTipCount(typeof result.stats?.tipCount === "number" ? result.stats.tipCount : 0);
     setBalanceCoins(typeof result.balanceCoins === "number" ? result.balanceCoins : null);
     setCoinsPerUsd(typeof result.coinsPerUsd === "number" ? result.coinsPerUsd : 10);
     setProfile(loaded);
@@ -149,29 +170,82 @@ export default function ListenerProfileClient() {
 
   const initials = (profile.displayName || email.split("@")[0] || "L").charAt(0).toUpperCase();
   const coinDollars = balanceCoins === null ? null : balanceCoins / coinsPerUsd;
+  const tier = tipTierForCents(totalTippedCents);
+  const upcoming = nextTipTier(totalTippedCents);
 
   return (
-    <section className="panel" aria-live="polite">
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div className="row" style={{ gap: 12, alignItems: "center" }}>
+    <section className="panel lp" aria-live="polite" style={{ ["--accent" as string]: accent }}>
+      <div className="lp-banner" aria-hidden="true" />
+      <div className="lp-head">
+        <div className="lp-avatar-wrap" style={tier ? { ["--ring" as string]: tier.color } : undefined}>
           {profile.avatarUrl && !EMAIL_PLACEHOLDER_AVATAR
-            ? <img src={profile.avatarUrl} alt="" className="rm-avatar" style={{ width: 48, height: 48 }} />
-            : <span className="rm-avatar fallback" style={{ width: 48, height: 48, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{initials}</span>}
-          <div>
-            <strong>{profile.displayName || "Listener"}</strong>
-            <div className="small">{email}</div>
-          </div>
+            ? <img src={profile.avatarUrl} alt="" className="lp-avatar" />
+            : <span className="lp-avatar fallback">{initials}</span>}
+          {tier && <TipMedal tier={tier} size={34} className="lp-avatar-medal" />}
+        </div>
+        <div className="lp-id">
+          <h2>{profile.displayName || "Listener"}</h2>
+          <div className="small">{email}</div>
+          {tier && <span className="tip-badge lp-tier" style={{ ["--tier" as string]: tier.color }}>{tier.emoji} {tier.label} tipper</span>}
         </div>
         <button className="btn secondary" type="button" onClick={() => void signOut()}>Sign out</button>
+      </div>
+
+      {profile.bio && <p className="lp-bio">“{profile.bio}”</p>}
+
+      <div className="lp-stats">
+        <div><strong>${(totalTippedCents / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong><span>Total tipped</span></div>
+        <div><strong>{tipCount}</strong><span>Tips sent</span></div>
+        <div><strong>{balanceCoins === null ? "…" : balanceCoins.toLocaleString()}</strong><span>Coins</span></div>
+      </div>
+
+      <div className="lp-progress">
+        {upcoming ? (
+          <>
+            <div className="small">${((upcoming.minCents - totalTippedCents) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} more in tips to reach <b>{upcoming.label}</b></div>
+            <div className="lp-bar"><span style={{ width: `${Math.min(100, (totalTippedCents / upcoming.minCents) * 100)}%` }} /></div>
+          </>
+        ) : (
+          <div className="small">You have reached the top tipper level. Legend!</div>
+        )}
+      </div>
+
+      <div className="eyebrow">Tipper badges</div>
+      <div className="lp-badges">
+        {TIP_TIERS.map((item) => {
+          const earned = totalTippedCents >= item.minCents;
+          return (
+            <div key={item.id} className={earned ? "earned" : "locked"} title={`${item.label}: $${item.minCents / 100}+ sent`}>
+              <TipMedal tier={item} size={52} />
+              <span>{item.label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="eyebrow">Your color</div>
+      <div className="lp-accents" role="radiogroup" aria-label="Profile color">
+        {ACCENTS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            role="radio"
+            aria-checked={color === accent}
+            aria-label={`Use color ${color}`}
+            className={color === accent ? "on" : ""}
+            style={{ background: color }}
+            onClick={() => chooseAccent(color)}
+          />
+        ))}
       </div>
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 16 }}>
         <div>
           <div className="eyebrow">Coin balance</div>
-          <h2 style={{ margin: 0 }}>
+          <h3 style={{ margin: 0 }}>
             {balanceCoins === null ? "Loading..." : `${balanceCoins.toLocaleString()} coins`}
             {coinDollars !== null && <span className="small"> · about ${coinDollars.toFixed(2)}</span>}
-          </h2>
+          </h3>
         </div>
         <Link className="btn secondary" href="/wallet">Top up coins</Link>
       </div>
@@ -181,9 +255,8 @@ export default function ListenerProfileClient() {
 
       {!editing ? (
         <>
-          <div className="eyebrow">Profile</div>
-          {profile.bio && <p>{profile.bio}</p>}
-          {!profile.bio && <p className="muted">No bio yet.</p>}
+          <div className="eyebrow">About you</div>
+          {!profile.bio && <p className="muted">No bio yet. Tell the rooms who you are.</p>}
           <button className="btn" type="button" onClick={() => { setForm(profile); setEditing(true); }}>
             Edit profile
           </button>

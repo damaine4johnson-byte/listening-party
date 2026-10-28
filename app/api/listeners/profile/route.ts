@@ -55,7 +55,17 @@ export async function GET(request: NextRequest) {
       console.error("Listener wallet lookup failed", { code: balanceResult.error.code ?? "unknown" });
       return NextResponse.json({ error: "Could not load your coin balance." }, { status: 503 });
     }
+    const tips = await createSupabaseAdmin()
+      .from("payment_orders")
+      .select("amount_cents")
+      .eq("kind", "tip")
+      .eq("status", "paid")
+      .eq("listener_user_id", user.id)
+      .limit(10000);
+    const tipRows = tips.error ? [] : tips.data ?? [];
+    const totalTippedCents = tipRows.reduce((sum, row) => sum + (row.amount_cents as number), 0);
     return NextResponse.json({
+      stats: { totalTippedCents, tipCount: tipRows.length },
       profile: result.profile,
       email: user.email ?? "",
       balanceCoins: balanceResult.data?.balance_coins ?? 0,

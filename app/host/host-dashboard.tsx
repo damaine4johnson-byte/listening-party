@@ -330,6 +330,8 @@ export default function HostDashboard() {
       });
       const result = await response.json();
       if (!response.ok) {
+        // The room may exist even when the response reports an error, so resync the list.
+        await loadRooms();
         setNotice(result.error || "Could not create room.");
         return;
       }
@@ -343,7 +345,7 @@ export default function HostDashboard() {
       setTitle("");
       setDescription("");
       setEntryFee("");
-      setNotice("Room created. Copy and save this invite code; it will not be shown again.");
+      setNotice("Room created. Share the invite code below. You can also see it again from inside the room.");
     } catch {
       setNotice("Room service is unavailable. Try again shortly.");
     } finally {

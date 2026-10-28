@@ -14,6 +14,7 @@ export type RoomSessionPoll = {
   showAds: boolean;
   houseAd: HouseAd | null;
   isHost: boolean;
+  inviteCode: string | null;
   viewerCount: number | null;
   state: RoomState | null;
   messages: ChatMessage[];
@@ -29,6 +30,7 @@ const INITIAL: RoomSessionPoll = {
   showAds: false,
   houseAd: null,
   isHost: false,
+  inviteCode: null,
   viewerCount: null,
   state: null,
   messages: [],
@@ -83,6 +85,7 @@ export function useRoomSession(onEnded: () => void, onNotice: (message: string) 
               showAds: Boolean(result.showAds),
               houseAd: result.ad ?? null,
               isHost: Boolean(result.isHost),
+              inviteCode: typeof result.inviteCode === "string" ? result.inviteCode : null,
               viewerCount: typeof result.viewerCount === "number" ? result.viewerCount : current.viewerCount,
               state: Date.now() - lastCommandAt.current > 2500 && !unchanged ? next : current.state ?? next,
               messages: result.messages,

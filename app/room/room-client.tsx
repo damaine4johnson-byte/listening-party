@@ -10,6 +10,9 @@ import "./room-console.css";
 import { useRoomSession, useRoomTracks } from "./use-room-session";
 import { useAudioSync } from "./use-audio-sync";
 import { useTipping, usePlaylistReorder } from "./use-tipping";
+import { useBackgroundPlayback } from "./use-background-playback";
+import TipCelebration from "./tip-celebration";
+import { TipBadge } from "./tip-medal";
 import { Playlist, ChatLog, ChatAvatar } from "./room-panels";
 import { resizeToJpeg, formatTime, hashString } from "./room-types";
 import type { ChatMessage, Reaction, RoomState, RoomTrack } from "./room-types";
@@ -39,7 +42,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
 
   const {
     roomTitle, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
-    viewerCount, state, messages, reactions, ended, endSession,
+    viewerCount, inviteCode, state, messages, reactions, ended, endSession,
     coinSignedIn, coinBalance, refreshCoinBalance, lastCommandAt, clockOffset, setState,
     tipAlerts, appendMessage, appendReaction,
   } = useRoomSession(() => {
@@ -65,6 +68,17 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       ? tracks[(activeTrackIndex + 1) % tracks.length]
       : tracks[0];
   const isPlaying = state?.status === "playing";
+  const resumeAudio = useCallback(() => syncAudio(true), [syncAudio]);
+  useBackgroundPlayback({
+    audioRef,
+    title: activeTrack?.title ?? roomTitle,
+    artist: hostProfile?.display_name ?? "Famous Introvert Listening Rooms",
+    artworkUrl: coverUrl ?? hostProfile?.avatar_url ?? null,
+    active: Boolean(activeTrack) || video.hasVideo,
+    playing: isPlaying || video.hasVideo,
+    isHost,
+    onResume: resumeAudio,
+  });
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -325,6 +339,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
         <span className="tag">INVITE-ONLY ROOM</span>
       </header>
 
+      <TipCelebration alerts={tipAlerts} />
+
       <div className="rm-layout">
         <div className="rm-main">
           <div className={`rm-stage ${video.hasVideo ? "has-video" : ""}`} style={{ ["--hue" as string]: hue }}>
@@ -351,7 +367,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 <div className="rm-tip-alert" key={tip.id}>
                   <span className="rm-tip-icon" aria-hidden="true">💸</span>
                   <span>
-                    <strong>{tip.name}</strong> tipped <b>${(tip.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: tip.amountCents % 100 ? 2 : 0 })}</b>
+                    <strong>{tip.name}</strong> <TipBadge tierId={tip.badge} showLabel={false} /> tipped <b>${(tip.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: tip.amountCents % 100 ? 2 : 0 })}</b>
                     {tip.song && <> to boost <em>{tip.song}</em></>}
                   </span>
                 </div>
@@ -477,6 +493,31 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           {isHost && (
             <div className="rm-host-controls">
               <strong>Host controls</strong>
+              <div className="rm-invite">
+                <span className="small">Invite code</span>
+                {inviteCode ? (
+                  <>
+                    <code>{inviteCode}</code>
+                    <button
+                      className="btn secondary"
+                      type="button"
+                      onClick={() => {
+                        const link = new URL("/", window.location.origin);
+                        link.searchParams.set("invite", inviteCode);
+                        link.hash = "enter-room";
+                        navigator.clipboard.writeText(link.toString()).then(
+                          () => setNotice("Invite link copied."),
+                          () => setNotice("Copy failed. Select the code manually."),
+                        );
+                      }}
+                    >
+                      Copy invite link
+                    </button>
+                  </>
+                ) : (
+                  <span className="small">Not saved for this room. Generate a new invite from the host dashboard to see it here.</span>
+                )}
+              </div>
               {(video.canPublish || previewVideoControls) && (
                 <div className="row">
                   <button className={`btn ${video.cameraOn ? "" : "secondary"}`} type="button" aria-pressed={video.cameraOn} onClick={() => void video.toggleCamera()}>

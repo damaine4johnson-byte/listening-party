@@ -171,7 +171,7 @@ export default function RoomTrackManager({ roomId }: { roomId: string }) {
           <input
             id={`track-files-${roomId}`}
             type="file"
-            accept="audio/*"
+            accept="audio/*,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/flac,.mp3,.wav,.wave,.m4a,.aac,.flac,.ogg,.aif,.aiff,.mp4"
             multiple
             disabled={pending}
             onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))}

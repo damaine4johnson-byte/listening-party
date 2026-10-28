@@ -81,6 +81,7 @@ export function AdminDashboard() {
       <header>
         <h1>Admin</h1>
         <div className="who">
+          <NotificationBell />
           {me.username} <span className="badge">{me.role}</span>
           <button onClick={() => guard(async () => { await api("/api/admin/session", "DELETE"); setMe(null); })}>Sign out</button>
         </div>
@@ -117,6 +118,57 @@ export function AdminDashboard() {
 }
 
 type Guard = (fn: () => Promise<void>, success?: string) => Promise<void>;
+
+const SEEN_KEY = "adm-notifications-seen";
+const ICONS = { artist: "🎤", room: "🎧", payment: "💰" } as const;
+
+function NotificationBell() {
+  const [items, setItems] = useState<{ id: string; type: keyof typeof ICONS; text: string; at: string }[]>([]);
+  const [open, setOpen] = useState(false);
+  const [seenAt, setSeenAt] = useState(0);
+
+  useEffect(() => {
+    setSeenAt(Number(window.localStorage.getItem(SEEN_KEY)) || 0);
+    let active = true;
+    async function load() {
+      try {
+        const result = await api("/api/admin/notifications");
+        if (active) setItems(result.notifications ?? []);
+      } catch { /* keep the previous list */ }
+    }
+    void load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  const unread = items.filter((item) => new Date(item.at).getTime() > seenAt).length;
+  function toggle() {
+    if (!open) return setOpen(true);
+    const now = Date.now();
+    window.localStorage.setItem(SEEN_KEY, String(now));
+    setSeenAt(now);
+    setOpen(false);
+  }
+
+  return (
+    <span className="bell">
+      <button type="button" aria-label={`Notifications${unread ? `, ${unread} new` : ""}`} onClick={toggle}>
+        🔔{unread > 0 && <span className="bell-count">{unread > 9 ? "9+" : unread}</span>}
+      </button>
+      {open && (
+        <div className="bell-panel" role="dialog" aria-label="Notifications">
+          {items.length === 0 && <p className="muted">No recent activity.</p>}
+          {items.map((item) => (
+            <div key={item.id} className={new Date(item.at).getTime() > seenAt ? "new" : ""}>
+              <span>{ICONS[item.type]} {item.text}</span>
+              <small>{when(item.at)}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
 
 function Analytics({ guard }: { guard: Guard }) {
   const [o, setO] = useState<Json>(null);

@@ -858,3 +858,5 @@
   object-fit: cover;
   opacity: 0.55;
 }
+.rm-invite { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rm-invite code { font-size: 20px; font-weight: 800; letter-spacing: .12em; padding: 4px 12px; border-radius: 10px; background: rgb(255 255 255 / 10%); user-select: all; }

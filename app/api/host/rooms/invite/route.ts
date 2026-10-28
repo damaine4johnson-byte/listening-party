@@ -5,8 +5,7 @@ import { createSupabaseAdmin } from "../../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../../lib/host-profile";
 import { generateInviteCode, normalizeInviteCode } from "../../../../../lib/invite-code";
 
-// Issues a fresh invite code for a room the host owns. Only the hash is stored, so the
-// previous code stops working and the new one is shown exactly once.
+// Issues a fresh invite code for a room the host owns. The previous code stops working.
 export async function POST(request: NextRequest) {
   if (request.headers.get("origin") !== request.nextUrl.origin) {
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
@@ -22,7 +21,8 @@ export async function POST(request: NextRequest) {
   const inviteCodeHash = createHash("sha256").update(normalizeInviteCode(inviteCode)).digest("hex");
 
   try {
-    const { data, error } = await createSupabaseAdmin()
+    const supabase = createSupabaseAdmin();
+    const { data, error } = await supabase
       .from("rooms")
       .update({ invite_code_hash: inviteCodeHash })
       .eq("id", roomId)
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (error) return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
     if (!data) return NextResponse.json({ error: "Room not found." }, { status: 404 });
+    await supabase.from("rooms").update({ invite_code: inviteCode }).eq("id", roomId);
     return NextResponse.json({ inviteCode }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });

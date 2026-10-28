@@ -16,7 +16,7 @@ export type RoomTrack = { id: string; title: string; durationSeconds: number | n
 export type HostProfile = { display_name: string; bio: string; avatar_url: string };
 export type Reaction = { id: string; display_name: string; reaction: "heart" | "fire" | "clap" | "laugh" | "wow"; created_at: string };
 export type HouseAd = { title: string; body: string; href: string };
-export type TipAlert = { id: string; name: string; amountCents: number; song: string | null };
+export type TipAlert = { id: string; name: string; amountCents: number; song: string | null; badge?: string | null };
 
 export const REACTIONS = [
   { id: "heart", label: "Love", symbol: "♥" },

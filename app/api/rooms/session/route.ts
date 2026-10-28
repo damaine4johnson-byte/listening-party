@@ -4,6 +4,8 @@ import { readRoomSessionToken, ROOM_SESSION_COOKIE } from "../../../../lib/room-
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getPlatformSettings } from "../../../../lib/platform-settings";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
+import { lifetimeTipCents } from "../../../../lib/tipper-stats";
+import { tipTierForCents } from "../../../../lib/tip-tiers";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 
 export async function GET(request: NextRequest) {
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
         .gte("last_seen_at", new Date(Date.now() - 30_000).toISOString()),
       supabase
         .from("payment_orders")
-        .select("order_id, display_name, amount_cents, track_id, paid_at")
+        .select("order_id, display_name, amount_cents, track_id, paid_at, listener_user_id")
         .eq("room_id", session.roomId)
         .eq("kind", "tip")
         .eq("status", "paid")
@@ -72,10 +74,15 @@ export async function GET(request: NextRequest) {
       const { data: tipTracks } = await supabase.from("room_tracks").select("id, title").in("id", trackIds);
       for (const track of tipTracks ?? []) titleById.set(track.id as string, track.title as string);
     }
+    const lifetime = await lifetimeTipCents(
+      supabase,
+      tipRows.map((tip) => tip.listener_user_id as string | null).filter((id): id is string => Boolean(id)),
+    ).catch(() => new Map<string, number>());
     const tipAlerts = tipRows.reverse().map((tip) => ({
       id: tip.order_id as string,
       name: (tip.display_name as string | null) || "A listener",
       amountCents: tip.amount_cents as number,
+      badge: tipTierForCents(lifetime.get(tip.listener_user_id as string) ?? 0)?.id ?? null,
       song: tip.track_id ? titleById.get(tip.track_id as string) ?? null : null,
     }));
 
@@ -112,9 +119,16 @@ export async function GET(request: NextRequest) {
     const hostSession = await readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
     const isHost = Boolean(hostSession && roomResult.data.host_id && hostSession.hostId === roomResult.data.host_id);
 
+    let inviteCode: string | null = null;
+    if (isHost) {
+      const { data: codeRow } = await supabase.from("rooms").select("invite_code").eq("id", session.roomId).maybeSingle();
+      inviteCode = (codeRow as { invite_code?: string | null } | null)?.invite_code ?? null;
+    }
+
     return NextResponse.json(
       {
         isHost,
+        inviteCode,
         viewerCount: viewerResult.count ?? 0,
         tipAlerts,
         serverTime: Date.now(),

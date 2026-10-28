@@ -1,0 +1,31 @@
+.tipfx { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: grid; place-items: center; overflow: hidden; animation: tipfx-life var(--dur, 4s) both; }
+.tipfx-flash { position: absolute; inset: 0; background: radial-gradient(circle, var(--glow), transparent 70%); opacity: 0; animation: tipfx-flash .9s ease-out calc(var(--rank) * .02s); }
+.tipfx-rays { position: absolute; width: 220vmax; height: 220vmax; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 38%, transparent) 0 6deg, transparent 6deg 18deg); mask-image: radial-gradient(circle, #000 0, transparent 45%); animation: tipfx-spin 9s linear infinite; opacity: .8; }
+.tipfx-card { position: relative; display: grid; justify-items: center; gap: 6px; padding: 26px 34px; border-radius: 28px; background: rgb(10 6 24 / 78%); border: 2px solid var(--tier); box-shadow: 0 0 calc(30px + var(--rank) * 24px) var(--tier), inset 0 0 30px rgb(255 255 255 / 8%); text-align: center; animation: tipfx-pop .7s cubic-bezier(.2,1.6,.4,1) both; max-width: 86vw; }
+.tipfx-medal { filter: drop-shadow(0 0 18px var(--glow)); animation: tipfx-float 1.6s ease-in-out infinite; }
+.tipfx-level { font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--glow); font-size: 14px; }
+.tipfx-amount { font-size: calc(40px + var(--rank) * 9px); font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 22px var(--tier); }
+.tipfx-who { display: flex; align-items: center; gap: 8px; font-size: 17px; flex-wrap: wrap; justify-content: center; }
+.tipfx-song { font-size: 13px; opacity: .8; }
+.tipfx-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.tipfx-p { position: absolute; left: 0; top: 0; opacity: 0; animation: tipfx-fly 2.2s cubic-bezier(.15,.8,.3,1) forwards; }
+.tipfx-p.shape-0 { border-radius: 50%; }
+.tipfx-p.shape-1 { border-radius: 2px; }
+.tipfx-p.shape-2 { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tipfx-p.fall { animation-name: tipfx-fall; animation-duration: 3.4s; }
+.tipfx-diamond .tipfx-card, .tipfx-legendary .tipfx-card { animation: tipfx-pop .7s cubic-bezier(.2,1.6,.4,1) both, tipfx-shake .5s linear .3s 4; }
+.tipfx-legendary { background: radial-gradient(circle, rgb(200 91 255 / 30%), transparent 70%); }
+.tipfx-legendary .tipfx-card { border-image: linear-gradient(120deg, #ff5ca8, #ffd34d, #5cc8ff, #c85bff) 1; border-radius: 0; }
+.tipfx-legendary .tipfx-amount { background: linear-gradient(90deg, #ff5ca8, #ffd34d, #5cc8ff, #c85bff, #ff5ca8); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: tipfx-hue 1.2s linear infinite; }
+.tipfx-bronze { --dur: 3.2s; } .tipfx-silver { --dur: 3.8s; } .tipfx-gold { --dur: 4.4s; } .tipfx-platinum { --dur: 5s; } .tipfx-diamond { --dur: 5.8s; } .tipfx-legendary { --dur: 7s; }
+.tip-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 4px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: color-mix(in srgb, var(--tier) 28%, #120a26); border: 1px solid var(--tier); vertical-align: middle; }
+@keyframes tipfx-life { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tipfx-flash { 0% { opacity: 0; } 15% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes tipfx-spin { to { transform: rotate(360deg); } }
+@keyframes tipfx-pop { 0% { transform: scale(.2) rotate(-8deg); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tipfx-float { 50% { transform: translateY(-8px) scale(1.04); } }
+@keyframes tipfx-fly { 0% { transform: translate(0, 0) scale(.3); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) rotate(var(--spin)) scale(1); opacity: 0; } }
+@keyframes tipfx-fall { 0% { transform: translate(var(--x), -60vh) rotate(0); opacity: 1; } 100% { transform: translate(var(--x), 70vh) rotate(var(--spin)); opacity: 0; } }
+@keyframes tipfx-shake { 0%, 100% { translate: 0 0; } 25% { translate: -6px 3px; } 50% { translate: 5px -4px; } 75% { translate: -4px -3px; } }
+@keyframes tipfx-hue { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .tipfx-rays, .tipfx-medal, .tipfx-p { animation: none; } .tipfx-p { display: none; } }

@@ -37,3 +37,9 @@
 .adm .chart span { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; }
 .adm .login { max-width: 360px; margin: 12vh auto 0; }
 .adm .login form { display: grid; gap: 12px; }
+.adm .bell { position: relative; display: inline-block; margin-right: 8px; }
+.adm .bell-count { position: absolute; top: -6px; right: -6px; min-width: 18px; padding: 0 4px; border-radius: 999px; background: #e5334b; color: #fff; font-size: 11px; line-height: 18px; }
+.adm .bell-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: min(360px, 88vw); max-height: 60vh; overflow: auto; padding: 8px; border-radius: 12px; background: #15151c; border: 1px solid rgb(255 255 255 / 14%); box-shadow: 0 16px 40px rgb(0 0 0 / 50%); text-align: left; }
+.adm .bell-panel > div { display: grid; gap: 2px; padding: 8px; border-radius: 8px; }
+.adm .bell-panel > div.new { background: rgb(229 51 75 / 14%); }
+.adm .bell-panel small { opacity: .6; }

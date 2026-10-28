@@ -359,7 +359,8 @@ function ManageRoom({ room, hostToken, onEnter, onUpdate }: {
 
   async function uploadTrack() {
     const selection = await DocumentPicker.getDocumentAsync({
-      type: "audio/*",
+      // Explicit types: iOS greys out mp3/wav in the Files picker when only audio/* is given.
+      type: ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/flac", "audio/*"],
       copyToCacheDirectory: true,
       multiple: false,
     });

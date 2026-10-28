@@ -1,0 +1,22 @@
+.lp { --accent: #ff3d8b; position: relative; overflow: hidden; padding-top: 0; }
+.lp-banner { height: 110px; margin: 0 -24px; background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 80%, #fff 10%), transparent 60%), linear-gradient(120deg, color-mix(in srgb, var(--accent) 70%, #000), #1a1030); }
+.lp-head { display: flex; align-items: flex-end; gap: 16px; margin-top: -44px; flex-wrap: wrap; }
+.lp-avatar-wrap { position: relative; border-radius: 50%; padding: 4px; background: var(--ring, var(--accent)); box-shadow: 0 0 22px color-mix(in srgb, var(--ring, var(--accent)) 60%, transparent); }
+.lp-avatar { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #1a1030; font-size: 36px; font-weight: 800; }
+.lp-avatar-medal { position: absolute; right: -6px; bottom: -6px; }
+.lp-id { flex: 1; min-width: 160px; display: grid; gap: 4px; }
+.lp-id h2 { margin: 0; }
+.lp-tier { justify-self: start; padding-left: 8px; }
+.lp-bio { font-style: italic; opacity: .9; margin: 14px 0 0; }
+.lp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+.lp-stats div { display: grid; gap: 2px; padding: 12px; text-align: center; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.lp-stats strong { font-size: 22px; }
+.lp-stats span { font-size: 12px; opacity: .7; }
+.lp-bar { height: 8px; margin-top: 6px; border-radius: 99px; background: rgb(255 255 255 / 10%); overflow: hidden; }
+.lp-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #fff); }
+.lp-badges { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 10px; margin: 8px 0 16px; }
+.lp-badges div { display: grid; justify-items: center; gap: 4px; font-size: 12px; }
+.lp-badges .locked { filter: grayscale(1); opacity: .35; }
+.lp-accents { display: flex; gap: 10px; margin: 8px 0; }
+.lp-accents button { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.lp-accents button.on { border-color: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 60%, transparent); }
