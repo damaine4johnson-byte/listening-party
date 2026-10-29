@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { getPublicArtist } from "../../../lib/artists-public";
 import { feedMediaUrl } from "../../../lib/feed-media";
 import { createSupabaseAdmin } from "../../../lib/supabase-admin";
+import { cookies } from "next/headers";
+import { HOST_SESSION_COOKIE } from "../../../lib/host-session";
+import { readActiveHostSession } from "../../../lib/host-profile";
+import NewPostButton from "../../host/new-post-button";
 import FollowButton from "../follow-button";
 import styles from "./profile.module.css";
 
@@ -21,6 +25,8 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   if (!artist) notFound();
 
   const db = createSupabaseAdmin();
+  const session = await readActiveHostSession((await cookies()).get(HOST_SESSION_COOKIE)?.value).catch(() => null);
+  const isOwner = session?.hostId === artist.hostId;
   const [roomsResult, postsResult] = await Promise.all([
     db.from("rooms").select("id, title, status, entry_fee_cents").eq("host_id", artist.hostId).neq("status", "ended").order("created_at", { ascending: false }).limit(10),
     db.from("feed_posts").select("id, title, media_path, media_type").eq("host_id", artist.hostId).order("created_at", { ascending: false }).limit(30),
@@ -95,6 +101,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         </div>
       </section>
 
+      {isOwner && <NewPostButton />}
       <Link href="/artists" className={styles.back}>← All artists</Link>
     </main>
   );

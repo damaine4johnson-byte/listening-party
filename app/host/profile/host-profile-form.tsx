@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ARTIST_TIERS, type ArtistTier } from "../../../lib/artist-tiers";
 import { AvatarCropper } from "./avatar-cropper";
 import styles from "./edit-profile.module.css";
+import NewPostButton from "../new-post-button";
 
 type HostProfile = {
   display_name: string;
@@ -126,6 +127,7 @@ export default function HostProfileForm() {
               </div>
               <div className={styles.actions}>
                 {handle && <a href={`/artists/${handle}`}>View public profile</a>}
+                <NewPostButton inline />
                 {profile.avatar_url && <button type="button" onClick={() => update("avatar_url", "")}>Remove photo</button>}
               </div>
             </div>
