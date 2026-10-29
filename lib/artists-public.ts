@@ -1,6 +1,6 @@
 import "server-only";
 import { createSupabaseAdmin } from "./supabase-admin";
-import { USERNAME_PATTERN } from "./artist-username";
+import { hasUsernameColumn, USERNAME_PATTERN } from "./artist-username";
 
 // The public handle is a prefix of the internal host id, so the full id is never exposed in URLs.
 export const HANDLE_LENGTH = 16;
@@ -15,7 +15,7 @@ export async function followerCount(hostId: string) {
 
 export async function resolveHostId(handle: unknown): Promise<string | null> {
   // Username handles (preferred, shareable): /artist/<username>
-  if (typeof handle === "string" && USERNAME_PATTERN.test(handle.toLowerCase())) {
+  if (typeof handle === "string" && USERNAME_PATTERN.test(handle.toLowerCase()) && await hasUsernameColumn()) {
     const { data } = await createSupabaseAdmin()
       .from("host_profiles")
       .select("host_id")
@@ -43,7 +43,9 @@ export async function getPublicArtist(handle: string): Promise<PublicArtist | nu
 
 export async function listPublicArtists(): Promise<PublicArtist[]> {
   const db = createSupabaseAdmin();
-  const { data: profiles } = await db.from("host_profiles").select("host_id, display_name, bio, avatar_url, username").neq("display_name", "").limit(300);
+  const withUsername = await hasUsernameColumn();
+  const { data: profilesRaw } = await db.from("host_profiles").select(withUsername ? "host_id, display_name, bio, avatar_url, username" : "host_id, display_name, bio, avatar_url").neq("display_name", "").limit(300);
+  const profiles = profilesRaw as unknown as Array<{ host_id: string; display_name: string; bio: string | null; avatar_url: string | null; username?: string | null }> | null;
   if (!profiles?.length) return [];
   const { data: active } = await db.from("host_accounts").select("host_id").in("host_id", profiles.map((p) => p.host_id as string)).eq("account_status", "active");
   const activeIds = new Set((active ?? []).map((a) => a.host_id as string));

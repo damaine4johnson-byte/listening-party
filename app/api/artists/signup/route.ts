@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { isArtistTier } from "../../../../lib/artist-tiers";
 import { persistHostIdentity } from "../../../../lib/host-profile";
-import { generateUniqueUsername } from "../../../../lib/artist-username";
+import { generateUniqueUsername, hasUsernameColumn } from "../../../../lib/artist-username";
 import {
   createHostSessionToken,
   HOST_SESSION_COOKIE,
@@ -56,13 +56,15 @@ export async function POST(request: NextRequest) {
     }
     // Assign a unique searchable handle on first signup; existing artists keep theirs.
     const { createSupabaseAdmin } = await import("../../../../lib/supabase-admin");
-    const existingProfile = await createSupabaseAdmin()
-      .from("host_profiles")
-      .select("username")
-      .eq("host_id", hostId)
-      .maybeSingle();
-    const username = existingProfile.data?.username as string | undefined
-      ?? await generateUniqueUsername(email.split("@")[0]);
+    let username: string | undefined;
+    if (await hasUsernameColumn()) {
+      const existingProfile = await createSupabaseAdmin()
+        .from("host_profiles")
+        .select("username")
+        .eq("host_id", hostId)
+        .maybeSingle();
+      username = (existingProfile.data?.username as string | undefined) ?? await generateUniqueUsername(email.split("@")[0]);
+    }
     const { error: profileError } = await supabaseAdminProfile(hostId, values.planTier, username);
     if (profileError) {
       return NextResponse.json({ error: "Artist profile storage is not configured." }, { status: 503 });

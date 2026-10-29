@@ -55,3 +55,12 @@ export async function isUsernameAvailable(username: string) {
     .limit(1);
   return !data?.length;
 }
+
+// Usernames need supabase/artist_usernames.sql; until it is run the site must keep working without them.
+let usernameColumn: { ok: boolean; at: number } | null = null;
+export async function hasUsernameColumn() {
+  if (usernameColumn && Date.now() - usernameColumn.at < 60_000) return usernameColumn.ok;
+  const { error } = await createSupabaseAdmin().from("host_profiles").select("username").limit(1);
+  usernameColumn = { ok: !error, at: Date.now() };
+  return usernameColumn.ok;
+}

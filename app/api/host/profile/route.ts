@@ -4,7 +4,7 @@ import { readActiveHostSession } from "../../../../lib/host-profile";
 import { followerCount, handleOf } from "../../../../lib/artists-public";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { isArtistTier } from "../../../../lib/artist-tiers";
-import { isUsernameAvailable, USERNAME_PATTERN } from "../../../../lib/artist-username";
+import { hasUsernameColumn, isUsernameAvailable, USERNAME_PATTERN } from "../../../../lib/artist-username";
 
 async function getSession(request: NextRequest) {
   return readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createSupabaseAdmin();
+    const withUsername = await hasUsernameColumn();
     const [accountResult, profileResult] = await Promise.all([
       supabase
         .from("host_accounts")
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from("host_profiles")
-        .select("display_name, bio, avatar_url, contact_email, plan_tier, subscription_status, username")
+        .select(withUsername ? "display_name, bio, avatar_url, contact_email, plan_tier, subscription_status, username" : "display_name, bio, avatar_url, contact_email, plan_tier, subscription_status")
         .eq("host_id", session.hostId)
         .maybeSingle(),
     ]);
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     const followers = await followerCount(session.hostId).catch(() => 0);
-    const profile = profileResult.data ?? null;
+    const profile = (profileResult.data ?? null) as (Record<string, unknown> & { username?: string }) | null;
     return NextResponse.json({
       followers,
       handle: handleOf(session.hostId),
@@ -98,19 +99,21 @@ export async function PUT(request: NextRequest) {
 
   try {
     const supabase = createSupabaseAdmin();
-    const { data: currentProfile, error: currentProfileError } = await supabase
+    const withUsername = await hasUsernameColumn();
+    const { data: currentProfileRaw, error: currentProfileError } = await supabase
       .from("host_profiles")
-      .select("plan_tier, subscription_status, username")
+      .select(withUsername ? "plan_tier, subscription_status, username" : "plan_tier, subscription_status")
       .eq("host_id", session.hostId)
       .maybeSingle();
     if (currentProfileError) {
       return NextResponse.json({ error: "Could not load current artist tier." }, { status: 503 });
     }
+    const currentProfile = currentProfileRaw as { plan_tier?: string; subscription_status?: string; username?: string } | null;
 
     // Username changes: only apply when the artist actually typed a new one,
     // and keep the DB-level uniqueness check as the source of truth.
     let usernameUpdate: string | undefined;
-    if (requestedUsername !== null && requestedUsername !== currentProfile?.username) {
+    if (withUsername && requestedUsername !== null && requestedUsername !== currentProfile?.username) {
       if (!USERNAME_PATTERN.test(requestedUsername)) {
         return NextResponse.json({ error: "Usernames are 3-24 characters: lowercase letters, numbers and underscores, starting with a letter." }, { status: 400 });
       }
