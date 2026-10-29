@@ -178,7 +178,11 @@ function FeedAdmin({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const load = useCallback(() => guard(async () => setPosts((await api("/api/admin/feed")).posts)), [guard]);
+  const [comments, setComments] = useState<Json[]>([]);
+  const load = useCallback(() => guard(async () => {
+    setPosts((await api("/api/admin/feed")).posts);
+    setComments((await api("/api/admin/feed/comments")).comments ?? []);
+  }), [guard]);
   useEffect(() => { void load(); }, [load]);
   return (
     <div>
@@ -223,6 +227,17 @@ function FeedAdmin({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
             await api("/api/admin/feed", "DELETE", { id: p.id });
             setPosts((cur) => cur.filter((x) => x.id !== p.id));
           }, "Post deleted.")}>Delete</button>
+        </div>
+      ))}
+      <h3>Recent comments</h3>
+      {comments.length === 0 && <p className="muted">No comments yet.</p>}
+      {comments.map((c) => (
+        <div className="card row" key={c.id} style={{ marginBottom: 8, justifyContent: "space-between" }}>
+          <span><strong>{c.author_name}</strong> <span className="muted">{when(c.created_at)}</span><br />{c.body}</span>
+          <button className="danger" disabled={!canEdit} onClick={() => guard(async () => {
+            await api("/api/admin/feed/comments", "DELETE", { id: c.id });
+            setComments((cur) => cur.filter((x) => x.id !== c.id));
+          }, "Comment deleted.")}>Delete</button>
         </div>
       ))}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
@@ -13,11 +13,15 @@ export default function JoinForm() {
   const [paymentSessionId, setPaymentSessionId] = useState("");
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [listenerSignedIn, setListenerSignedIn] = useState(false);
+  const [auto, setAuto] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inviteCode = params.get("invite");
     if (inviteCode) setCode(inviteCode.slice(0, 128));
+    // Notification links (?invite=CODE&go=1) enter straight away; paid rooms still ask for payment.
+    if (inviteCode && params.get("go") === "1" && !params.get("paid")) setAuto(true);
 
     const paid = params.get("paid");
     if (paid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paid)) {
@@ -47,6 +51,26 @@ export default function JoinForm() {
       sessionStorage.removeItem("fi-pending-coin-entry");
     }
   }, []);
+
+  useEffect(() => {
+    if (!auto || !code) return;
+    void (async () => {
+      let name = displayName;
+      if (!name && supabase) {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (accessToken) {
+          const response = await fetch("/api/listeners/profile", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+          const result = await response.json().catch(() => null);
+          if (response.ok) name = result?.profile?.displayName || String(result?.email ?? "").split("@")[0];
+        }
+      }
+      setAuto(false);
+      if (!name) return;
+      setDisplayName(name.slice(0, 32));
+      setTimeout(() => formRef.current?.requestSubmit(), 60);
+    })();
+  }, [auto, code, displayName]);
 
   useEffect(() => {
     let active = true;
@@ -178,7 +202,7 @@ export default function JoinForm() {
   }
 
   return (
-    <form onSubmit={submit}>
+    <form ref={formRef} onSubmit={submit}>
       <div className="field">
         <label htmlFor="code">Invitation code</label>
         <input

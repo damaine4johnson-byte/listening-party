@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import RoomTrackManager from "./room-track-manager";
 import HostAnalytics from "./host-analytics";
+import HostFeed from "./host-feed";
 import { AvatarCropper } from "./profile/avatar-cropper";
 import "./host-console.css";
 
@@ -499,6 +500,7 @@ export default function HostDashboard() {
       </aside>
 
       <section className="hc-main" aria-labelledby="rooms-title">
+        <HostFeed />
         <HostAnalytics rooms={rooms.map((room) => ({ id: room.id, title: room.title }))} />
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 id="rooms-title">Rooms</h2>

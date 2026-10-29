@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NotificationBell from "./notification-bell";
 
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/showcase", label: "The listening room (feed)" },
+  { href: "/artists", label: "Artists" },
   { href: "/host", label: "Rooms" },
   { href: "/host/profile", label: "Artist profile" },
   { href: "/profile", label: "Listener profile" },
@@ -38,6 +40,7 @@ export default function SiteMenu() {
 
   return (
     <div className="site-menu" ref={box}>
+      <NotificationBell />
       <button type="button" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((v) => !v)}>
         ☰ Menu
       </button>

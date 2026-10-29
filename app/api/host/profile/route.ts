@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { readActiveHostSession } from "../../../../lib/host-profile";
+import { followerCount, handleOf } from "../../../../lib/artists-public";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { isArtistTier } from "../../../../lib/artist-tiers";
 
@@ -35,7 +36,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Could not load host profile." }, { status: 503 });
     }
 
+    const followers = await followerCount(session.hostId).catch(() => 0);
     return NextResponse.json({
+      followers,
+      handle: handleOf(session.hostId),
       account: accountResult.data,
       profile: profileResult.data ?? {
         display_name: "", bio: "", avatar_url: "", contact_email: "",

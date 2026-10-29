@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { generateInviteCode, normalizeInviteCode } from "../../../../lib/invite-code";
 import { NextRequest, NextResponse } from "next/server";
 import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
+import { notifyFollowers } from "../../../../lib/follow-notify";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 import { getRoomCoverUrls, roomCoverPath } from "../../../../lib/room-cover";
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
       .upsert({ room_id: room.id, status: "paused", position_seconds: 0 }, { onConflict: "room_id", ignoreDuplicates: true });
     // Stored so the host can view the code again; requires supabase/invite_code_display.sql.
     await supabase.from("rooms").update({ invite_code: inviteCode }).eq("id", room.id);
+    if (room.status !== "ended") await notifyFollowers(session.hostId, room, inviteCode, room.status === "live");
 
     return NextResponse.json({ room, inviteCode }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {
@@ -165,7 +167,7 @@ export async function PATCH(request: NextRequest) {
     const supabase = createSupabaseAdmin();
     const { data: current, error: currentError } = await supabase
       .from("rooms")
-      .select("entry_fee_cents")
+      .select("entry_fee_cents, status")
       .eq("id", roomId)
       .eq("host_id", session.hostId)
       .maybeSingle();
@@ -195,6 +197,12 @@ export async function PATCH(request: NextRequest) {
       .select("id, title, description, slug, status, max_listeners, entry_fee_cents, created_at")
       .single();
     if (error || !room) return NextResponse.json({ error: "Room could not be updated." }, { status: 503 });
+    if (room.status === "live" && current.status !== "live") {
+      // invite_code needs supabase/invite_code_display.sql; without it followers simply are not notified.
+      const { data: codeRow } = await supabase.from("rooms").select("invite_code").eq("id", roomId).maybeSingle();
+      const code = (codeRow as { invite_code?: string | null } | null)?.invite_code;
+      if (code) await notifyFollowers(session.hostId, room, code, true);
+    }
     return NextResponse.json({ room }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Room service is not configured." }, { status: 503 });

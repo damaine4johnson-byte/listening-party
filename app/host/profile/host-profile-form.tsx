@@ -30,6 +30,8 @@ const emptyProfile: HostProfile = {
 export default function HostProfileForm() {
   const [profile, setProfile] = useState(emptyProfile);
   const [account, setAccount] = useState<HostAccount | null>(null);
+  const [followers, setFollowers] = useState(0);
+  const [handle, setHandle] = useState("");
   const [notice, setNotice] = useState("Loading profile...");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -44,6 +46,8 @@ export default function HostProfileForm() {
         if (!active) return;
         setProfile(result.profile);
         setAccount(result.account);
+        setFollowers(typeof result.followers === "number" ? result.followers : 0);
+        setHandle(typeof result.handle === "string" ? result.handle : "");
         setNotice("");
       })
       .catch((error: unknown) => {
@@ -104,6 +108,7 @@ export default function HostProfileForm() {
         <section className="panel" aria-labelledby="public-profile-title">
           <h2 id="public-profile-title">Public profile</h2>
           <p className="muted">These details appear to listeners in rooms you host.</p>
+          <p><strong>{followers.toLocaleString()} {followers === 1 ? "follower" : "followers"}</strong>{handle && <> · <a href={`/artists/${handle}`}>View your public page</a></>}</p>
           <div className="field">
             <label htmlFor="display-name">Display name</label>
             <input
