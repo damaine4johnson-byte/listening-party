@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
     const profile = (profileResult.data ?? null) as (Record<string, unknown> & { username?: string }) | null;
     return NextResponse.json({
       followers,
-      handle: handleOf(session.hostId),
+      handle: profile?.username || handleOf(session.hostId),
       username: profile?.username ?? null,
-      profileUrl: profile?.username ? `/artist/${profile.username}` : null,
+      profileUrl: profile?.username ? `/artists/${profile.username}` : null,
       account: accountResult.data,
       profile: profile ?? {
         display_name: "", bio: "", avatar_url: "", contact_email: "",

@@ -32,6 +32,7 @@ export default function HostProfileForm() {
   const [account, setAccount] = useState<HostAccount | null>(null);
   const [followers, setFollowers] = useState(0);
   const [handle, setHandle] = useState("");
+  const [username, setUsername] = useState("");
   const [notice, setNotice] = useState("Loading profile...");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -48,6 +49,7 @@ export default function HostProfileForm() {
         setAccount(result.account);
         setFollowers(typeof result.followers === "number" ? result.followers : 0);
         setHandle(typeof result.handle === "string" ? result.handle : "");
+        setUsername(typeof result.username === "string" ? result.username : "");
         setNotice("");
       })
       .catch((error: unknown) => {
@@ -90,10 +92,12 @@ export default function HostProfileForm() {
           avatarUrl: profile.avatar_url,
           contactEmail: profile.contact_email,
           planTier: profile.plan_tier,
+          ...(username ? { username } : {}),
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save profile.");
+      if (username) setHandle(username);
       setNotice("Profile saved.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not save profile.");
@@ -109,6 +113,19 @@ export default function HostProfileForm() {
           <h2 id="public-profile-title">Public profile</h2>
           <p className="muted">These details appear to listeners in rooms you host.</p>
           <p><strong>{followers.toLocaleString()} {followers === 1 ? "follower" : "followers"}</strong>{handle && <> · <a href={`/artists/${handle}`}>View your public page</a></>}</p>
+          {username !== "" && (
+            <div className="field">
+              <label htmlFor="username">Username</label>
+              <input
+                id="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                minLength={3}
+                maxLength={24}
+              />
+              <p className="muted">Your public link: /artists/{username}</p>
+            </div>
+          )}
           <div className="field">
             <label htmlFor="display-name">Display name</label>
             <input
