@@ -4,6 +4,7 @@ import { readActiveHostSession } from "../../../../lib/host-profile";
 import { followerCount, handleOf } from "../../../../lib/artists-public";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { isArtistTier } from "../../../../lib/artist-tiers";
+import { isUsernameAvailable, USERNAME_PATTERN } from "../../../../lib/artist-username";
 
 async function getSession(request: NextRequest) {
   return readActiveHostSession(request.cookies.get(HOST_SESSION_COOKIE)?.value);
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from("host_profiles")
-        .select("display_name, bio, avatar_url, contact_email, plan_tier, subscription_status")
+        .select("display_name, bio, avatar_url, contact_email, plan_tier, subscription_status, username")
         .eq("host_id", session.hostId)
         .maybeSingle(),
     ]);
@@ -37,11 +38,14 @@ export async function GET(request: NextRequest) {
     }
 
     const followers = await followerCount(session.hostId).catch(() => 0);
+    const profile = profileResult.data ?? null;
     return NextResponse.json({
       followers,
       handle: handleOf(session.hostId),
+      username: profile?.username ?? null,
+      profileUrl: profile?.username ? `/artist/${profile.username}` : null,
       account: accountResult.data,
-      profile: profileResult.data ?? {
+      profile: profile ?? {
         display_name: "", bio: "", avatar_url: "", contact_email: "",
         plan_tier: "free", subscription_status: "active",
       },
@@ -66,13 +70,14 @@ export async function PUT(request: NextRequest) {
   }
 
   const values = input && typeof input === "object"
-    ? input as { displayName?: unknown; bio?: unknown; avatarUrl?: unknown; contactEmail?: unknown; planTier?: unknown }
+    ? input as { displayName?: unknown; bio?: unknown; avatarUrl?: unknown; contactEmail?: unknown; planTier?: unknown; username?: unknown }
     : {};
   const displayName = typeof values.displayName === "string" ? values.displayName.trim() : "";
   const bio = typeof values.bio === "string" ? values.bio.trim() : "";
   const avatarUrl = typeof values.avatarUrl === "string" ? values.avatarUrl.trim() : "";
   const contactEmail = typeof values.contactEmail === "string" ? values.contactEmail.trim() : "";
   const planTier = values.planTier;
+  const requestedUsername = typeof values.username === "string" ? values.username.trim().toLowerCase() : null;
 
   if (
     !displayName || displayName.length > 80 || bio.length > 400 ||
@@ -95,11 +100,25 @@ export async function PUT(request: NextRequest) {
     const supabase = createSupabaseAdmin();
     const { data: currentProfile, error: currentProfileError } = await supabase
       .from("host_profiles")
-      .select("plan_tier, subscription_status")
+      .select("plan_tier, subscription_status, username")
       .eq("host_id", session.hostId)
       .maybeSingle();
     if (currentProfileError) {
       return NextResponse.json({ error: "Could not load current artist tier." }, { status: 503 });
+    }
+
+    // Username changes: only apply when the artist actually typed a new one,
+    // and keep the DB-level uniqueness check as the source of truth.
+    let usernameUpdate: string | undefined;
+    if (requestedUsername !== null && requestedUsername !== currentProfile?.username) {
+      if (!USERNAME_PATTERN.test(requestedUsername)) {
+        return NextResponse.json({ error: "Usernames are 3-24 characters: lowercase letters, numbers and underscores, starting with a letter." }, { status: 400 });
+      }
+      const available = await isUsernameAvailable(requestedUsername);
+      if (!available) {
+        return NextResponse.json({ error: "That username is taken. Try another." }, { status: 409 });
+      }
+      usernameUpdate = requestedUsername;
     }
 
     const planChanged = currentProfile?.plan_tier !== planTier;
@@ -115,12 +134,19 @@ export async function PUT(request: NextRequest) {
         contact_email: contactEmail,
         plan_tier: planTier,
         subscription_status: subscriptionStatus,
+        ...(usernameUpdate ? { username: usernameUpdate } : {}),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "host_id" },
     );
-    if (error) return NextResponse.json({ error: "Could not save host profile." }, { status: 503 });
-    return NextResponse.json({ saved: true });
+    if (error) {
+      // Unique constraint violation on username surfaces here as a safety net.
+      if (error.code === "23505" && usernameUpdate) {
+        return NextResponse.json({ error: "That username is taken. Try another." }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Could not save host profile." }, { status: 503 });
+    }
+    return NextResponse.json({ saved: true, ...(usernameUpdate ? { username: usernameUpdate } : {}) });
   } catch {
     return NextResponse.json({ error: "Host profile storage is not configured." }, { status: 503 });
   }

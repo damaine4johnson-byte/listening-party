@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { isArtistTier } from "../../../../lib/artist-tiers";
 import { persistHostIdentity } from "../../../../lib/host-profile";
+import { generateUniqueUsername } from "../../../../lib/artist-username";
 import {
   createHostSessionToken,
   HOST_SESSION_COOKIE,
@@ -53,7 +54,16 @@ export async function POST(request: NextRequest) {
     if (accountStatus !== "active") {
       return NextResponse.json({ error: "This artist account is suspended." }, { status: 403 });
     }
-    const { error: profileError } = await supabaseAdminProfile(hostId, values.planTier);
+    // Assign a unique searchable handle on first signup; existing artists keep theirs.
+    const { createSupabaseAdmin } = await import("../../../../lib/supabase-admin");
+    const existingProfile = await createSupabaseAdmin()
+      .from("host_profiles")
+      .select("username")
+      .eq("host_id", hostId)
+      .maybeSingle();
+    const username = existingProfile.data?.username as string | undefined
+      ?? await generateUniqueUsername(email.split("@")[0]);
+    const { error: profileError } = await supabaseAdminProfile(hostId, values.planTier, username);
     if (profileError) {
       return NextResponse.json({ error: "Artist profile storage is not configured." }, { status: 503 });
     }
@@ -72,13 +82,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function supabaseAdminProfile(hostId: string, planTier: string) {
+async function supabaseAdminProfile(hostId: string, planTier: string, username?: string) {
   const { createSupabaseAdmin } = await import("../../../../lib/supabase-admin");
   return createSupabaseAdmin().from("host_profiles").upsert(
     {
       host_id: hostId,
       plan_tier: planTier,
       subscription_status: planTier === "free" ? "active" : "pending",
+      ...(username ? { username } : {}),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "host_id" },
