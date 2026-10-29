@@ -33,9 +33,11 @@ export async function resolveHostId(handle: unknown): Promise<string | null> {
 export async function getPublicArtist(handle: string): Promise<PublicArtist | null> {
   const hostId = await resolveHostId(handle);
   if (!hostId) return null;
-  const { data } = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url").eq("host_id", hostId).maybeSingle();
+  const withUsername = await hasUsernameColumn();
+  const { data: raw } = await createSupabaseAdmin().from("host_profiles").select(withUsername ? "display_name, bio, avatar_url, username" : "display_name, bio, avatar_url").eq("host_id", hostId).maybeSingle();
+  const data = raw as unknown as { display_name?: string; bio?: string; avatar_url?: string; username?: string | null } | null;
   return {
-    hostId, handle: handleOf(hostId),
+    hostId, handle: data?.username || handleOf(hostId),
     name: (data?.display_name as string) || "Artist", bio: (data?.bio as string) ?? "", avatarUrl: (data?.avatar_url as string) ?? "",
     followers: await followerCount(hostId),
   };
