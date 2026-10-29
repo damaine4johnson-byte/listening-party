@@ -30,32 +30,36 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   const posts = (postsResult.error ? [] : postsResult.data) as Post[];
   const isLive = rooms.some((room) => room.status === "live");
   const initial = artist.name.charAt(0).toUpperCase();
+  const username = /^[0-9a-f]{16}$/.test(artist.handle) ? artist.name : artist.handle;
 
   return (
     <main className={styles.page}>
-      <div className={styles.cover} />
-      <div className={styles.top}>
+      <header className={styles.head}>
         <div className={styles.ring}>
           {artist.avatarUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img className={styles.avatar} src={artist.avatarUrl} alt="" />
             : <div className={styles.avatar}>{initial}</div>}
+          {isLive && <span className={styles.live}>LIVE</span>}
         </div>
-        {isLive && <span className={styles.live}>● LIVE</span>}
-      </div>
-
-      <div className={styles.body}>
-        <h1 className={styles.name}>{artist.name}</h1>
+        <div className={styles.headMain}>
+          <div className={styles.handleRow}>
+            <h1 className={styles.username}>{username}</h1>
+            <FollowButton handle={artist.handle} initialFollowers={artist.followers} />
+          </div>
+          <div className={styles.stats}>
+            <div className={styles.stat}><strong>{posts.length}</strong> posts</div>
+            <div className={styles.stat}><strong>{artist.followers.toLocaleString()}</strong> {artist.followers === 1 ? "follower" : "followers"}</div>
+            <div className={styles.stat}><strong>{rooms.length}</strong> rooms</div>
+          </div>
+        </div>
+      </header>
+      <div className={styles.bioBlock}>
+        <b className={styles.name}>{artist.name}</b>
         {artist.bio && <p className={styles.bio}>{artist.bio}</p>}
-        <div className={styles.stats}>
-          <div className={styles.stat}><strong>{artist.followers.toLocaleString()}</strong><span>Followers</span></div>
-          <div className={styles.stat}><strong>{rooms.length}</strong><span>Open rooms</span></div>
-          <div className={styles.stat}><strong>{posts.length}</strong><span>Posts</span></div>
-        </div>
-        <FollowButton handle={artist.handle} initialFollowers={artist.followers} />
       </div>
 
-      <section className={styles.section} style={{ marginTop: 22 }}>
+      <section className={styles.section} style={{ marginTop: 18 }}>
         <h2>Rooms</h2>
         {rooms.length === 0 && <p className={styles.empty}>No open rooms right now. Follow to be notified when one opens.</p>}
         <div className={styles.rooms}>
@@ -72,7 +76,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         {rooms.length > 0 && <p className={styles.empty} style={{ marginTop: 10 }}>Followers get the room code in their notifications 🔔</p>}
       </section>
 
-      <div className={styles.tabs}><span>Posts</span></div>
+      <div className={styles.tabs}><span>▦ Posts</span></div>
       <section className={styles.section}>
         {posts.length === 0 && <p className={styles.empty}>No posts yet.</p>}
         <div className={styles.grid}>

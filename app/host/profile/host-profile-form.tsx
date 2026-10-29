@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ARTIST_TIERS, type ArtistTier } from "../../../lib/artist-tiers";
 import { AvatarCropper } from "./avatar-cropper";
+import styles from "./edit-profile.module.css";
 
 type HostProfile = {
   display_name: string;
@@ -110,9 +111,30 @@ export default function HostProfileForm() {
     <form onSubmit={save}>
       <div className="grid">
         <section className="panel" aria-labelledby="public-profile-title">
-          <h2 id="public-profile-title">Public profile</h2>
-          <p className="muted">These details appear to listeners in rooms you host.</p>
-          <p><strong>{followers.toLocaleString()} {followers === 1 ? "follower" : "followers"}</strong>{handle && <> · <a href={`/artists/${handle}`}>View your public page</a></>}</p>
+          <div className={styles.head}>
+            <label className={styles.ring} htmlFor="avatar-file" title="Change profile photo">
+              {profile.avatar_url
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img className={styles.avatar} src={profile.avatar_url} alt="Your profile photo" />
+                : <span className={styles.avatar}>{(profile.display_name || "?").charAt(0).toUpperCase()}</span>}
+              <span className={styles.cam} aria-hidden>📷</span>
+            </label>
+            <div className={styles.main}>
+              <h2 id="public-profile-title" className={styles.username}>{username || handle || profile.display_name || "Your profile"}</h2>
+              <div className={styles.stats}>
+                <span><strong>{followers.toLocaleString()}</strong> {followers === 1 ? "follower" : "followers"}</span>
+              </div>
+              <div className={styles.actions}>
+                {handle && <a href={`/artists/${handle}`}>View public profile</a>}
+                {profile.avatar_url && <button type="button" onClick={() => update("avatar_url", "")}>Remove photo</button>}
+              </div>
+            </div>
+          </div>
+          <div className={styles.bioBlock}>
+            <b>{profile.display_name || "Your name"}</b>
+            {profile.bio && <p>{profile.bio}</p>}
+          </div>
+          <h3 className={styles.editTitle}>Edit profile</h3>
           <div className="field">
             <label htmlFor="display-name">Display name</label>
             <input
@@ -146,30 +168,16 @@ export default function HostProfileForm() {
               rows={5}
             />
           </div>
-          <div className="field">
-            <label htmlFor="avatar-file">Profile picture</label>
-            <input
-              id="avatar-file"
-              type="file"
-              accept="image/*"
-              disabled={uploading}
-              onChange={(event) => { setCropFile(event.target.files?.[0] ?? null); event.target.value = ""; }}
-            />
-            {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onDone={(blob) => void uploadAvatar(blob)} />}
-            <span className="small">{uploading ? "Uploading..." : "Pick a photo from your gallery or device. Remember to save your profile afterwards."}</span>
-          </div>
-          {profile.avatar_url && (
-            <div className="row">
-              <img
-                src={profile.avatar_url}
-                alt="Avatar preview"
-                width={72}
-                height={72}
-                style={{ width: 72, height: 72, objectFit: "cover", borderRadius: "50%" }}
-              />
-              <button className="btn secondary" type="button" onClick={() => update("avatar_url", "")}>Remove</button>
-            </div>
-          )}
+          <input
+            id="avatar-file"
+            className={styles.hidden}
+            type="file"
+            accept="image/*"
+            disabled={uploading}
+            onChange={(event) => { setCropFile(event.target.files?.[0] ?? null); event.target.value = ""; }}
+          />
+          {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onDone={(blob) => void uploadAvatar(blob)} />}
+          <span className="small">{uploading ? "Uploading..." : "Tap your photo to change it, then save your profile."}</span>
         </section>
 
         <section className="panel" aria-labelledby="private-account-title">

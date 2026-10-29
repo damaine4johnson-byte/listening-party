@@ -1,0 +1,15 @@
+.head { display: flex; align-items: center; gap: clamp(18px, 6vw, 40px); padding: 8px 0 18px; }
+.ring { position: relative; padding: 3px; border-radius: 50%; background: conic-gradient(from 200deg, #ff3d8b, #ff8a3d, #ffd93d, #ff3d8b); flex: none; border: 0; cursor: pointer; }
+.avatar { display: grid; place-items: center; width: clamp(80px, 22vw, 140px); height: clamp(80px, 22vw, 140px); border-radius: 50%; object-fit: cover; border: 3px solid #100a20; background: #2a1245; color: #fff; font-size: 40px; font-weight: 800; }
+.cam { position: absolute; right: 2px; bottom: 2px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #ff3d8b; font-size: 16px; border: 2px solid #100a20; }
+.main { display: grid; gap: 12px; min-width: 0; }
+.username { margin: 0; font-size: 20px; font-weight: 400; overflow-wrap: anywhere; }
+.stats { display: flex; gap: clamp(14px, 4vw, 32px); font-size: 15px; }
+.stats strong { font-weight: 800; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions a, .actions button { padding: 7px 16px; border-radius: 8px; border: 0; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: rgb(255 255 255 / 14%); color: #fff; text-decoration: none; }
+.bioBlock { display: grid; gap: 2px; padding-bottom: 18px; border-bottom: 1px solid rgb(255 255 255 / 14%); margin-bottom: 18px; }
+.bioBlock b { font-size: 15px; }
+.bioBlock p { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.hidden { display: none; }
+.editTitle { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; margin: 0 0 12px; }
