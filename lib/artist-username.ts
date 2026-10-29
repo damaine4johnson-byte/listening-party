@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseAdmin } from "./supabase-admin";
+import { findUserByUsername } from "./listener-username";
 
 // Artist usernames: unique, human-readable handles shown in search and in
 // shareable links like /artist/<username>. Unlike the old hash-prefix handle,
@@ -46,6 +47,7 @@ export async function generateUniqueUsername(seed: string): Promise<string> {
   throw new Error("Could not allocate a unique username.");
 }
 
+// A name must be free among artists and listeners so one name means one person.
 export async function isUsernameAvailable(username: string) {
   if (!USERNAME_PATTERN.test(username)) return false;
   const { data } = await createSupabaseAdmin()
@@ -53,7 +55,13 @@ export async function isUsernameAvailable(username: string) {
     .select("username")
     .ilike("username", username)
     .limit(1);
-  return !data?.length;
+  if (data?.length) return false;
+  return !(await findUserByUsername(username).catch(() => null));
+}
+
+export async function artistUsernameTaken(username: string) {
+  const { data } = await createSupabaseAdmin().from("host_profiles").select("username").ilike("username", username).limit(1);
+  return Boolean(data?.length);
 }
 
 // Usernames need supabase/artist_usernames.sql; until it is run the site must keep working without them.

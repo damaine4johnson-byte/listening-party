@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getListenerUser } from "../../../../lib/listener-auth";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { artistUsernameTaken } from "../../../../lib/artist-username";
 import { findUserByUsername, usernameOf } from "../../../../lib/listener-username";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export async function PUT(request: NextRequest) {
 
   const db = createSupabaseAdmin();
   try {
+    if (await artistUsernameTaken(username).catch(() => false)) return NextResponse.json({ error: "That username is taken." }, { status: 409 });
     const owner = await findUserByUsername(username);
     if (owner && owner.id !== user.id) return NextResponse.json({ error: "That username is taken." }, { status: 409 });
     const { error } = await db.auth.admin.updateUserById(user.id, {

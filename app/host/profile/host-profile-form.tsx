@@ -145,7 +145,7 @@ export default function HostProfileForm() {
               required
             />
           </div>
-          {username !== "" && (
+          {(
             <div className="field">
               <label htmlFor="username">Username</label>
               <input
