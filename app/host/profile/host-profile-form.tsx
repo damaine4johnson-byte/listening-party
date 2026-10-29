@@ -113,6 +113,16 @@ export default function HostProfileForm() {
           <h2 id="public-profile-title">Public profile</h2>
           <p className="muted">These details appear to listeners in rooms you host.</p>
           <p><strong>{followers.toLocaleString()} {followers === 1 ? "follower" : "followers"}</strong>{handle && <> · <a href={`/artists/${handle}`}>View your public page</a></>}</p>
+          <div className="field">
+            <label htmlFor="display-name">Display name</label>
+            <input
+              id="display-name"
+              value={profile.display_name}
+              onChange={(event) => update("display_name", event.target.value)}
+              maxLength={80}
+              required
+            />
+          </div>
           {username !== "" && (
             <div className="field">
               <label htmlFor="username">Username</label>
@@ -126,16 +136,6 @@ export default function HostProfileForm() {
               <p className="muted">Your public link: /artists/{username}</p>
             </div>
           )}
-          <div className="field">
-            <label htmlFor="display-name">Display name</label>
-            <input
-              id="display-name"
-              value={profile.display_name}
-              onChange={(event) => update("display_name", event.target.value)}
-              maxLength={80}
-              required
-            />
-          </div>
           <div className="field">
             <label htmlFor="bio">Bio</label>
             <textarea
