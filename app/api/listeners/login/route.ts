@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { findUserByUsername } from "../../../../lib/listener-username";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +20,9 @@ export async function POST(request: NextRequest) {
   try {
     let email = identifier;
     if (!identifier.includes("@")) {
-      const db = createSupabaseAdmin();
-      const { data: profile } = await db.from("listener_profiles").select("user_id").eq("username", identifier).maybeSingle();
-      if (!profile) return FAIL.clone();
-      const { data: found } = await db.auth.admin.getUserById(profile.user_id as string);
-      if (!found.user?.email) return FAIL.clone();
-      email = found.user.email;
+      const found = await findUserByUsername(identifier);
+      if (!found?.email) return FAIL.clone();
+      email = found.email;
     }
     const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data, error } = await client.auth.signInWithPassword({ email, password });

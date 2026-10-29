@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getListenerUser } from "../../../../lib/listener-auth";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { findUserByUsername, usernameOf } from "../../../../lib/listener-username";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,11 @@ const USERNAME = /^[a-z0-9._-]{3,24}$/;
 export async function GET(request: NextRequest) {
   const user = await getListenerUser(request);
   if (!user) return NextResponse.json({ error: "Sign in to manage your login." }, { status: 401 });
-  const { data, error } = await createSupabaseAdmin().from("listener_profiles").select("username").eq("user_id", user.id).maybeSingle();
   const hasPassword = Boolean(user.identities?.some((identity) => identity.provider === "email"));
   return NextResponse.json({
-    username: error ? null : (data?.username as string | null) ?? null,
+    username: usernameOf(user),
     hasPassword,
     suggestion: (user.email ?? "").split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24),
-    ready: !error,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -32,14 +31,16 @@ export async function PUT(request: NextRequest) {
   }
 
   const db = createSupabaseAdmin();
-  const { error } = await db.from("listener_profiles").upsert({ user_id: user.id, username }, { onConflict: "user_id" });
-  if (error) {
-    if (error.code === "23505") return NextResponse.json({ error: "That username is taken." }, { status: 409 });
-    return NextResponse.json({ error: "Could not save your username. Run supabase/listener_username.sql." }, { status: 503 });
-  }
-  if (typeof password === "string") {
-    const { error: pwError } = await db.auth.admin.updateUserById(user.id, { password });
-    if (pwError) return NextResponse.json({ error: "Could not save your password." }, { status: 503 });
+  try {
+    const owner = await findUserByUsername(username);
+    if (owner && owner.id !== user.id) return NextResponse.json({ error: "That username is taken." }, { status: 409 });
+    const { error } = await db.auth.admin.updateUserById(user.id, {
+      app_metadata: { listener_username: username },
+      ...(typeof password === "string" ? { password } : {}),
+    });
+    if (error) return NextResponse.json({ error: "Could not save your login details." }, { status: 503 });
+  } catch {
+    return NextResponse.json({ error: "Could not save your login details." }, { status: 503 });
   }
   return NextResponse.json({ ok: true, username });
 }
