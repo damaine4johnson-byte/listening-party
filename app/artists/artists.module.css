@@ -12,6 +12,7 @@
 .rooms li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: rgb(255 255 255 / 6%); }
 .pill { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgb(58 200 120 / 28%); }
 .paid { background: rgb(255 201 51 / 28%); }
-.follow { padding: 10px 20px; border-radius: 999px; border: 0; font: inherit; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, #ff3d8b, #ff8a3d); color: #fff; }
+.follow { width: 100%; padding: 12px 20px; border-radius: 999px; border: 0; font: inherit; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, #ff3d8b, #ff8a3d); color: #fff; }
 .follow.on { background: rgb(255 255 255 / 14%); }
 .follow:disabled { opacity: .6; cursor: wait; }
+.followWrap { display: grid; gap: 8px; }

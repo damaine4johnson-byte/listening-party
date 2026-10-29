@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import styles from "./artists.module.css";
 
@@ -11,6 +12,7 @@ export default function FollowButton({ handle, initialFollowers }: { handle: str
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   async function token() {
     return (await supabase?.auth.getSession())?.data.session?.access_token ?? "";
@@ -37,11 +39,11 @@ export default function FollowButton({ handle, initialFollowers }: { handle: str
     setPending(false);
     if (!response.ok) { setError(d.error || "Could not update."); return; }
     setFollowing(d.following); setFollowers(d.followers);
+    router.refresh();
   }
 
   return (
     <div>
-      <div className={styles.followers}>{followers.toLocaleString()} {followers === 1 ? "follower" : "followers"}</div>
       {signedIn === false ? (
         <p className={styles.muted}><Link href="/signin">Sign in</Link> to follow and get notified when this artist opens a room.</p>
       ) : (
