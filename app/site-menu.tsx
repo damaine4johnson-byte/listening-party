@@ -100,27 +100,25 @@ export default function SiteMenu() {
 
   const links = viewer.kind === "artist"
     ? [
-        { href: profileHref, label: "Profile", icon: "👤" },
-        { href: "/host", label: "Rooms", icon: "🎧" },
-        { href: "/bank", label: "Balance", icon: "💰" },
-        { href: "/host/profile", label: "Settings", icon: "⚙️" },
-        { href: "/about", label: "About", icon: "ⓘ" },
-      ]
+      { href: profileHref, label: "Profile", icon: "👤" },
+      { href: "/feed", label: "Feed", icon: "▦" },
+      { href: "/host", label: "Rooms", icon: "🎧" },
+      { href: "/bank", label: "Balance", icon: "💰" },
+      { href: "/host/profile", label: "Settings", icon: "⚙️" },
+      { href: "/about", label: "About", icon: "ⓘ" },
+    ]
     : [
-        { href: profileHref, label: "Profile", icon: "👤" },
-        { href: "/bank", label: "Balance", icon: "💰" },
-        { href: "/wallet", label: "Buy coins", icon: "🪙" },
-        { href: "/help", label: "Help & support", icon: "ⓘ" },
-        { href: "/about", label: "About", icon: "ⓘ" },
-      ];
+      { href: profileHref, label: "Profile", icon: "👤" },
+      { href: "/feed", label: "Feed", icon: "▦" },
+      { href: "/bank", label: "Balance", icon: "💰" },
+      { href: "/wallet", label: "Buy coins", icon: "🪙" },
+      { href: "/help", label: "Help & support", icon: "ⓘ" },
+      { href: "/about", label: "About", icon: "ⓘ" },
+    ];
 
   return (
     <div className={styles.bar} ref={box}>
-      <div className={styles.left}>
-        <Link href="/showcase" className={styles.iconLink} aria-label="Feed" title="Feed">
-          <FeedIcon />
-        </Link>
-      </div>
+      <div className={styles.left} />
       <div className={styles.right}>
         <NotificationBell />
         <button type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((v) => !v)}>
@@ -175,15 +173,5 @@ export default function SiteMenu() {
         )}
       </div>
     </div>
-  );
-}
-
-function FeedIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="17.2" cy="6.8" r="1.3" fill="currentColor" />
-    </svg>
   );
 }
