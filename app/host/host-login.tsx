@@ -20,7 +20,7 @@ export default function HostLogin() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/host/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/host`,
         queryParams: { prompt: "select_account" },
       },
     });

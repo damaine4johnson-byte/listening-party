@@ -95,7 +95,7 @@ export default function SiteMenu() {
   }, [open]);
 
   const signedIn = viewer.name !== "" || viewer.kind === "artist";
-  const profileHref = viewer.kind === "artist" && viewer.handle ? `/artists/${viewer.handle}` : "/profile";
+  const profileHref = "/profile";
   const initials = (viewer.name || "?").charAt(0).toUpperCase();
 
   const links = viewer.kind === "artist"

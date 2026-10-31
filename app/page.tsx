@@ -24,7 +24,7 @@ export default function Home() {
         </Link>
         <div className={styles.navCenter}>PRIVATE LISTENING SERIES <span>·</span> EST. 2026</div>
         <nav className={styles.authLinks} aria-label="Account">
-          <Link className={styles.signIn} href="/host">Sign in</Link>
+          <Link className={styles.signIn} href="/signin">Sign in</Link>
           <Link className={styles.signUp} href="/signup">Sign up</Link>
         </nav>
       </header>

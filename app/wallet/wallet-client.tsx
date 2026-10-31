@@ -82,7 +82,7 @@ export default function WalletClient() {
     setPending(true);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/wallet/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/wallet`, queryParams: { prompt: "select_account" } },
     });
     if (authError) {
       setError("Google sign-in could not be started. Check the Supabase Google provider settings.");

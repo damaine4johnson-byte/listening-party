@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import styles from "./signin.module.css";
 
 export default function ListenerSigninForm() {
   const [pending, setPending] = useState(false);
@@ -11,10 +11,10 @@ export default function ListenerSigninForm() {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    // Already signed in? Skip straight to the profile.
+    // Let the server route an existing session to the matching account type.
     if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.access_token) window.location.replace("/profile");
+      if (data.session?.access_token) window.location.replace("/auth/callback?next=/profile");
     });
   }, []);
 
@@ -27,7 +27,7 @@ export default function ListenerSigninForm() {
     setPending(true);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/wallet/callback?next=/profile` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/profile`, queryParams: { prompt: "select_account" } },
     });
     if (authError) {
       setError("Google sign-in could not be started. Check the Supabase Google provider settings.");
@@ -48,36 +48,50 @@ export default function ListenerSigninForm() {
       if (!response.ok) { setError(d.error || "Could not sign in."); setPending(false); return; }
       const { error: sessionError } = await supabase.auth.setSession({ access_token: d.access_token, refresh_token: d.refresh_token });
       if (sessionError) { setError("Could not sign in."); setPending(false); return; }
-      window.location.replace("/profile");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) { setError("Could not verify your account."); setPending(false); return; }
+      const routeResponse = await fetch("/api/auth/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken, next: "/profile" }),
+      });
+      const routeResult = await routeResponse.json();
+      if (!routeResponse.ok) { setError(routeResult.error || "Could not resolve your account."); setPending(false); return; }
+      if (routeResult.accountType === "host") await supabase.auth.signOut();
+      window.location.replace(routeResult.destination === "/host" ? "/host" : routeResult.accountType === "host" ? "/host/profile" : "/profile");
     } catch {
       setError("Could not sign in. Try again."); setPending(false);
     }
   }
 
   return (
-    <section className="panel" aria-live="polite">
-      <h2>Listener sign-in</h2>
-      <p className="small">
-        Sign in with Google to set up your listener profile, keep your coin wallet across devices,
-        and get your photo in the room chat.
-      </p>
-      <button className="btn" type="button" onClick={() => void signIn()} disabled={pending}>
-        {pending ? "Opening Google..." : "Sign in with Google"}
+    <section className={styles.auth} aria-live="polite">
+      <div className={styles.authTop}><span className={styles.authDot} /> MEMBER ACCESS</div>
+      <h2>Sign in</h2>
+      <p className={styles.authCopy}>Your email determines whether you open a host or listener account.</p>
+      <button className={styles.googleButton} type="button" onClick={() => void signIn()} disabled={pending}>
+        <span className={styles.googleMark} aria-hidden="true">G</span>
+        <span>{pending ? "Opening Google..." : "Continue with Google"}</span>
+        <span className={styles.buttonArrow} aria-hidden="true">↗</span>
       </button>
-      <form onSubmit={passwordSignIn} style={{ marginTop: 16 }}>
-        <p className="small">Already signed up with Google? Use the username and password you set in your profile.</p>
-        <div className="field">
-          <label htmlFor="li-user">Username or email</label>
-          <input id="li-user" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
-        </div>
-        <div className="field">
-          <label htmlFor="li-pass">Password</label>
-          <input id="li-pass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-        </div>
-        <button className="btn secondary" type="submit" disabled={pending}>Sign in with password</button>
-      </form>
-      {error && <p className="small" role="alert">{error}</p>}
-      <p className="small">Your Google account is used only for sign-in and your wallet.</p>
+      <details className={styles.passwordDetails}>
+        <summary>Use username and password</summary>
+        <form onSubmit={passwordSignIn} className={styles.passwordForm}>
+          <p>For listeners with saved login details.</p>
+          <div className="field">
+            <label htmlFor="li-user">Username or email</label>
+            <input id="li-user" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" />
+          </div>
+          <div className="field">
+            <label htmlFor="li-pass">Password</label>
+            <input id="li-pass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+          </div>
+          <button className={styles.passwordButton} type="submit" disabled={pending}>Sign in with password</button>
+        </form>
+      </details>
+      {error && <p className={styles.error} role="alert">{error}</p>}
+      <p className={styles.privacy}>Secure sign-in · your account stays yours</p>
     </section>
   );
 }

@@ -1,10 +1,19 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import LogoMark from "../logo-mark";
 import ListenerProfileClient from "./listener-profile-client";
+import { HOST_SESSION_COOKIE } from "../../lib/host-session";
+import { readActiveHostSession } from "../../lib/host-profile";
 
 export const metadata = { title: "Your profile · Famous Introvert" };
+export const dynamic = "force-dynamic";
 
-export default function ListenerProfilePage() {
+export default async function ListenerProfilePage() {
+  const cookieStore = await cookies();
+  const hostSession = await readActiveHostSession(cookieStore.get(HOST_SESSION_COOKIE)?.value);
+  if (hostSession) redirect("/host/profile");
+
   return (
     <main className="wrap">
       <header className="nav">
