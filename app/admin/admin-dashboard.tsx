@@ -4,6 +4,7 @@ import { FormEvent, ReactElement, useCallback, useEffect, useState } from "react
 import { supabase } from "../../lib/supabase";
 import "./admin.css";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any;
 type Role = "owner" | "admin" | "viewer";
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -34,9 +35,13 @@ export function AdminDashboard() {
 
   const guard = useCallback(async (fn: () => Promise<void>, success = "") => {
     setError(""); setNote("");
-    try { await fn(); setNote(success); } catch (e: any) {
-      if (e.status === 401) setMe(null);
-      setError(e.message);
+    try {
+      await fn();
+      setNote(success);
+    } catch (e) {
+      const err = e as { status?: number; message?: string };
+      if (err.status === 401) setMe(null);
+      setError(err.message ?? "Something went wrong.");
     }
   }, []);
 
@@ -359,6 +364,10 @@ function Artists({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   useEffect(() => { void load(); }, [load]);
   const save = (hostId: string, change: Json) =>
     guard(async () => { await api("/api/admin/artists", "PATCH", { hostId, ...change }); await load(); }, "Artist updated.");
+  const removeUsername = (a: Json) => {
+    if (!window.confirm(`Remove the username "${a.username}" from ${a.profile?.display_name || a.account_identity}? Their public /artists link will stop working until they pick a new one.`)) return;
+    void guard(async () => { await api("/api/admin/artists", "DELETE", { hostId: a.host_id }); await load(); }, "Username removed.");
+  };
 
   const size = 10;
   const needle = q.toLowerCase();
@@ -366,19 +375,20 @@ function Artists({ guard, canEdit }: { guard: Guard; canEdit: boolean }) {
   return (
     <section>
       <div className="bar"><input className="grow" placeholder="Filter artists" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></div>
-      {list.slice((page - 1) * size, page * size).map((a) => <ArtistRow key={a.host_id} a={a} canEdit={canEdit} onSave={(c) => save(a.host_id, c)} />)}
+      {list.slice((page - 1) * size, page * size).map((a) => <ArtistRow key={a.host_id} a={a} canEdit={canEdit} onSave={(c) => save(a.host_id, c)} onRemoveUsername={() => removeUsername(a)} />)}
       <Pager page={page} total={list.length} size={size} onPage={setPage} />
     </section>
   );
 }
 
-function ArtistRow({ a, canEdit, onSave }: { a: Json; canEdit: boolean; onSave: (c: Json) => void }) {
+function ArtistRow({ a, canEdit, onSave, onRemoveUsername }: { a: Json; canEdit: boolean; onSave: (c: Json) => void; onRemoveUsername: () => void }) {
   const [name, setName] = useState<string>(a.profile?.display_name ?? "");
   const [bio, setBio] = useState<string>(a.profile?.bio ?? "");
   const off = !canEdit || !a.profile;
   return (
     <div className="card grid">
       <div><strong>{a.profile?.display_name || a.account_identity}</strong>{" "}
+        {a.username && <span className="badge">@{a.username}</span>}{" "}
         <span className="muted">{a.auth_provider} · {a.roomCount} rooms · joined {new Date(a.created_at).toLocaleDateString()} · {a.account_status}</span></div>
       <input value={name} maxLength={80} disabled={off} onChange={(e) => setName(e.target.value)} placeholder="Display name" />
       <textarea value={bio} maxLength={400} disabled={off} onChange={(e) => setBio(e.target.value)} placeholder="Bio" />
@@ -394,6 +404,7 @@ function ArtistRow({ a, canEdit, onSave }: { a: Json; canEdit: boolean; onSave: 
           onClick={() => onSave({ accountStatus: a.account_status === "active" ? "suspended" : "active" })}>
           {a.account_status === "active" ? "Suspend" : "Reactivate"}
         </button>
+        {a.username && <button className="danger" disabled={!canEdit} onClick={onRemoveUsername}>Remove username</button>}
       </div>
     </div>
   );

@@ -11,14 +11,16 @@ export async function GET(request: NextRequest) {
   const auth = await authorize(request);
   if ("response" in auth) return auth.response;
   const db = createSupabaseAdmin();
-  const [accounts, profiles, rooms] = await Promise.all([
+  const [accounts, profiles, rooms, usernames] = await Promise.all([
     db.from("host_accounts").select("host_id, auth_provider, account_identity, account_status, created_at").order("created_at", { ascending: false }).limit(500),
     db.from("host_profiles").select("host_id, display_name, bio, contact_email, plan_tier, subscription_status").limit(500),
     db.from("rooms").select("host_id").limit(10_000),
+    db.from("artist_usernames").select("username, host_id").limit(1_000).then((r) => (r.error ? { data: [] } : r)),
   ]);
   if (accounts.error || profiles.error) return NextResponse.json({ error: "Could not load artists." }, { status: 503 });
 
   const profileById = new Map((profiles.data ?? []).map((p) => [p.host_id, p]));
+  const usernameByHost = new Map((usernames.data ?? []).map((u) => [u.host_id, u.username]));
   const roomCounts = new Map<string, number>();
   for (const r of rooms.data ?? []) if (r.host_id) roomCounts.set(r.host_id, (roomCounts.get(r.host_id) ?? 0) + 1);
 
@@ -26,6 +28,7 @@ export async function GET(request: NextRequest) {
     artists: (accounts.data ?? []).map((a) => ({
       ...a,
       profile: profileById.get(a.host_id) ?? null,
+      username: usernameByHost.get(a.host_id) ?? null,
       roomCount: roomCounts.get(a.host_id) ?? 0,
     })),
   });
@@ -34,13 +37,13 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const auth = await authorize(request, "admin", true);
   if ("response" in auth) return auth.response;
+  const db = createSupabaseAdmin();
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const hostId = body?.hostId;
   if (typeof hostId !== "string" || !/^[a-f0-9]{64}$/.test(hostId)) {
     return NextResponse.json({ error: "Invalid artist." }, { status: 400 });
   }
-  const db = createSupabaseAdmin();
   const now = new Date().toISOString();
 
   if (body?.accountStatus !== undefined) {
@@ -73,4 +76,26 @@ export async function PATCH(request: NextRequest) {
   const { hostId: _h, ...changes } = body ?? {};
   await audit(auth.admin.username, "artist_update", hostId, changes);
   return NextResponse.json({ ok: true });
+}
+
+// Admins can free a username an artist no longer holds — e.g. to resolve a
+// "this username is taken" dispute or clear a stale claim.
+export async function DELETE(request: NextRequest) {
+  const auth = await authorize(request, "admin", true);
+  if ("response" in auth) return auth.response;
+
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const hostId = body?.hostId;
+  if (typeof hostId !== "string" || !/^[a-f0-9]{64}$/.test(hostId)) {
+    return NextResponse.json({ error: "Invalid artist." }, { status: 400 });
+  }
+
+  const db = createSupabaseAdmin();
+  const { data: existing } = await db.from("artist_usernames").select("username").eq("host_id", hostId).maybeSingle();
+  if (!existing) return NextResponse.json({ error: "This artist has no username." }, { status: 404 });
+
+  const { error } = await db.from("artist_usernames").delete().eq("host_id", hostId);
+  if (error) return NextResponse.json({ error: "Could not remove the username." }, { status: 503 });
+  await audit(auth.admin.username, "artist_username_removed", hostId, { username: existing.username });
+  return NextResponse.json({ ok: true, username: existing.username });
 }

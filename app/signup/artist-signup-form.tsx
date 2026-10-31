@@ -6,9 +6,12 @@ import { ARTIST_TIERS, type ArtistTier } from "../../lib/artist-tiers";
 
 export default function ArtistSignupForm() {
   const [planTier, setPlanTier] = useState<ArtistTier>("free");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [audience, setAudience] = useState<"listener" | "artist" | null>(null);
+
+  const cleanUsername = (value: string) => value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
 
   async function signUp() {
     setError("");
@@ -18,9 +21,19 @@ export default function ArtistSignupForm() {
     }
 
     setPending(true);
+    if (audience === "artist" && !/^[a-z][a-z0-9_]{2,23}$/.test(cleanUsername(username))) {
+      setError("Pick a username: 3-24 characters, lowercase letters, numbers and underscores, starting with a letter.");
+      setPending(false);
+      return;
+    }
+    if (audience === "listener" && username && !/^[a-z][a-z0-9_]{2,23}$/.test(cleanUsername(username))) {
+      setError("Usernames are 3-24 characters: lowercase letters, numbers and underscores, starting with a letter (or leave it blank).");
+      setPending(false);
+      return;
+    }
     const redirectTo = audience === "listener"
-      ? `${window.location.origin}/wallet/callback?next=/profile`
-      : `${window.location.origin}/signup/callback?tier=${planTier}`;
+      ? `${window.location.origin}/wallet/callback?next=/profile${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}`
+      : `${window.location.origin}/signup/callback?tier=${planTier}${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}`;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -45,7 +58,7 @@ export default function ArtistSignupForm() {
             style={{ cursor: "pointer", textAlign: "left" }}
             onClick={() => setAudience("listener")}
           >
-            <strong>I'm a listener</strong>
+            <strong>I&apos;m a listener</strong>
             <span className="small" style={{ display: "block", marginTop: 8 }}>
               Join private listening rooms, keep a coin wallet, and set up your chat profile.
             </span>
@@ -56,7 +69,7 @@ export default function ArtistSignupForm() {
             style={{ cursor: "pointer", textAlign: "left" }}
             onClick={() => setAudience("artist")}
           >
-            <strong>I'm an artist</strong>
+            <strong>I&apos;m an artist</strong>
             <span className="small" style={{ display: "block", marginTop: 8 }}>
               Host your own listening rooms, upload your music, and earn from tips and entry fees.
             </span>
@@ -80,10 +93,34 @@ export default function ArtistSignupForm() {
             Sign in with Google to create your profile and coin wallet. You can always explore
             artist tiers later from the host console.
           </p>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label htmlFor="listener-signup-username">Username (optional — you can add one later)</label>
+            <input
+              id="listener-signup-username"
+              value={username}
+              onChange={(event) => setUsername(cleanUsername(event.target.value))}
+              minLength={3}
+              maxLength={24}
+              autoComplete="username"
+            />
+          </div>
         </>
       ) : (
         <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend className="small" style={{ marginBottom: 12 }}>Choose a tier</legend>
+        <legend className="small" style={{ marginBottom: 12 }}>Choose a tier and your username</legend>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label htmlFor="artist-signup-username">Username</label>
+          <input
+            id="artist-signup-username"
+            value={username}
+            onChange={(event) => setUsername(cleanUsername(event.target.value))}
+            minLength={3}
+            maxLength={24}
+            required
+            autoComplete="username"
+          />
+          <p className="small muted" style={{ marginTop: 4 }}>Your public profile will live at /artists/{username || "your-name"}</p>
+        </div>
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {ARTIST_TIERS.map((tier) => (
             <label className="panel" key={tier.id} style={{ cursor: "pointer", borderColor: planTier === tier.id ? "var(--red)" : undefined }}>

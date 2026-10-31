@@ -1,0 +1,4 @@
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+.tile { position: relative; margin: 0; border-radius: 12px; overflow: hidden; background: rgb(255 255 255 / 6%); }
+.tile img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.cap { position: absolute; inset: auto 0 0; padding: 6px 8px; font-size: 12px; background: linear-gradient(transparent, rgb(0 0 0 / 70%)); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

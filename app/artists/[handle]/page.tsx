@@ -8,6 +8,8 @@ import { cookies } from "next/headers";
 import { HOST_SESSION_COOKIE } from "../../../lib/host-session";
 import { readActiveHostSession } from "../../../lib/host-profile";
 import NewPostButton from "../../host/new-post-button";
+import { listGallery } from "../../../lib/artist-gallery";
+import galleryStyles from "./gallery.module.css";
 import FollowButton from "../follow-button";
 import styles from "./profile.module.css";
 
@@ -27,9 +29,10 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   const db = createSupabaseAdmin();
   const session = await readActiveHostSession((await cookies()).get(HOST_SESSION_COOKIE)?.value).catch(() => null);
   const isOwner = session?.hostId === artist.hostId;
-  const [roomsResult, postsResult] = await Promise.all([
+  const [roomsResult, postsResult, galleryPhotos] = await Promise.all([
     db.from("rooms").select("id, title, status, entry_fee_cents").eq("host_id", artist.hostId).neq("status", "ended").order("created_at", { ascending: false }).limit(10),
     db.from("feed_posts").select("id, title, media_path, media_type").eq("host_id", artist.hostId).order("created_at", { ascending: false }).limit(30),
+    listGallery(artist.hostId),
   ]);
   const rooms = roomsResult.data ?? [];
   // Before the follows/feed migration runs, the host_id column does not exist.
@@ -51,7 +54,9 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         <div className={styles.headMain}>
           <div className={styles.handleRow}>
             <h1 className={styles.username}>{username}</h1>
-            <FollowButton handle={artist.handle} initialFollowers={artist.followers} />
+            {isOwner
+              ? <Link className={styles.editBtn} href="/host/profile">Edit profile</Link>
+              : <FollowButton handle={artist.handle} initialFollowers={artist.followers} />}
           </div>
           <div className={styles.stats}>
             <div className={styles.stat}><strong>{posts.length}</strong> posts</div>
@@ -63,6 +68,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
       <div className={styles.bioBlock}>
         <b className={styles.name}>{artist.name}</b>
         {artist.bio && <p className={styles.bio}>{artist.bio}</p>}
+        {artist.linkInBio && <a className={styles.linkInBio} href={artist.linkInBio} target="_blank" rel="noopener noreferrer">🔗 {artist.linkInBio.replace(/^https:\/\//, "")}</a>}
       </div>
 
       <section className={styles.section} style={{ marginTop: 18 }}>
@@ -81,6 +87,21 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         </div>
         {rooms.length > 0 && <p className={styles.empty} style={{ marginTop: 10 }}>Followers get the room code in their notifications 🔔</p>}
       </section>
+
+      {galleryPhotos.length > 0 && (
+        <section className={styles.section} style={{ marginTop: 18 }}>
+          <h2>Gallery</h2>
+          <div className={galleryStyles.grid}>
+            {galleryPhotos.map((photo) => (
+              <figure key={photo.id} className={galleryStyles.tile}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.url} alt={photo.caption || ""} loading="lazy" />
+                {photo.caption && <figcaption className={galleryStyles.cap}>{photo.caption}</figcaption>}
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className={styles.tabs}><span>▦ Posts</span></div>
       <section className={styles.section}>

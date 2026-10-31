@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ARTIST_TIERS, type ArtistTier } from "../../../lib/artist-tiers";
 import { AvatarCropper } from "./avatar-cropper";
+import GalleryEditor from "./gallery-editor";
 import styles from "./edit-profile.module.css";
 import NewPostButton from "../new-post-button";
 
@@ -11,6 +12,7 @@ type HostProfile = {
   bio: string;
   avatar_url: string;
   contact_email: string;
+  link_in_bio: string;
   plan_tier: ArtistTier;
   subscription_status: string;
 };
@@ -25,6 +27,7 @@ const emptyProfile: HostProfile = {
   bio: "",
   avatar_url: "",
   contact_email: "",
+  link_in_bio: "",
   plan_tier: "free",
   subscription_status: "active",
 };
@@ -93,6 +96,7 @@ export default function HostProfileForm() {
           bio: profile.bio,
           avatarUrl: profile.avatar_url,
           contactEmail: profile.contact_email,
+          linkInBio: profile.link_in_bio,
           planTier: profile.plan_tier,
           ...(username ? { username } : {}),
         }),
@@ -161,6 +165,17 @@ export default function HostProfileForm() {
             </div>
           )}
           <div className="field">
+            <label htmlFor="link-in-bio">Link in bio (shown on your public profile)</label>
+            <input
+              id="link-in-bio"
+              type="url"
+              placeholder="https://your-music.com"
+              value={profile.link_in_bio}
+              onChange={(event) => update("link_in_bio", event.target.value)}
+              maxLength={300}
+            />
+          </div>
+          <div className="field">
             <label htmlFor="bio">Bio</label>
             <textarea
               id="bio"
@@ -206,6 +221,8 @@ export default function HostProfileForm() {
           <p className="small">Account identity and contact email are visible only in the host console.</p>
         </section>
       </div>
+
+      <GalleryEditor />
 
       <section style={{ marginTop: 20 }} aria-labelledby="artist-tier-title">
         <h2 id="artist-tier-title">Artist tier</h2>

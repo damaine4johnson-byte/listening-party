@@ -16,3 +16,10 @@
 .follow.on { background: rgb(255 255 255 / 14%); }
 .follow:disabled { opacity: .6; cursor: wait; }
 .followWrap { display: grid; gap: 8px; }
+.editBtn { display: inline-block; padding: 7px 22px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 35%); color: #fff; text-decoration: none; font-weight: 800; font-size: 14px; }
+.editBtn:hover { border-color: rgb(255 61 139 / 80%); }
+.linkInBio { display: inline-block; margin-top: 6px; color: #7cc4ff; font-size: 14px; text-decoration: none; }
+.linkInBio:hover { text-decoration: underline; }
+.searchBar { display: flex; gap: 10px; margin-top: 14px; }
+.searchBar input { flex: 1; }
+.resultHandle { font-size: 13px; opacity: .8; }

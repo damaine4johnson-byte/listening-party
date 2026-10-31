@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
   if ("response" in auth) return auth.response;
   const db = createSupabaseAdmin();
   const since = new Date(Date.now() - 30 * DAY).toISOString();
-  const count = (table: string, filter?: (q: any) => any) => {
+  const count = (
+    table: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    filter?: (q: any) => any,
+  ) => {
     const q = db.from(table).select("*", { count: "exact", head: true });
     return (filter ? filter(q) : q) as PromiseLike<{ count: number | null }>;
   };

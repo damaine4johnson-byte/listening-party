@@ -20,8 +20,18 @@ export default function ListenerWalletCallback() {
         return;
       }
       // Honor ?next=/profile so sign-ins started from other pages land back there.
-      const next = new URLSearchParams(window.location.search).get("next");
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
       const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
+      // A username chosen on the signup form is claimed on first sign-in.
+      const chosenUsername = (params.get("username") ?? "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+      if (chosenUsername && /^[a-z][a-z0-9_]{2,23}$/.test(chosenUsername)) {
+        await fetch("/api/listeners/credentials", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+          body: JSON.stringify({ username: chosenUsername }),
+        }).catch(() => undefined);
+      }
       const response = await fetch("/api/coins/balance", {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
         cache: "no-store",

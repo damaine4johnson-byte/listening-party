@@ -23,13 +23,15 @@ export default function ArtistSignupCallback() {
         return;
       }
 
-      const requestedTier = new URLSearchParams(window.location.search).get("tier");
+      const params = new URLSearchParams(window.location.search);
+      const requestedTier = params.get("tier");
       const planTier = isArtistTier(requestedTier) ? requestedTier : "free";
+      const username = params.get("username") ?? "";
       try {
         const response = await fetch("/api/artists/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken, planTier }),
+          body: JSON.stringify({ accessToken, planTier, username }),
         });
         const result = await response.json();
         await supabase.auth.signOut();

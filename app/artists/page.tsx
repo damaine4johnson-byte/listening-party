@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listPublicArtists } from "../../lib/artists-public";
+import ArtistSearch from "./artist-search";
 import styles from "./artists.module.css";
 
 export const metadata: Metadata = { title: "Artists | Famous Introvert", description: "Follow artists and get notified when they open a room." };
@@ -13,6 +14,7 @@ export default async function ArtistsPage() {
       <section className="panel">
         <h1>Artists</h1>
         <p className="muted">Follow an artist to be notified the moment they open a room.</p>
+        <ArtistSearch />
         {artists.length === 0 && <p className="muted">No artist profiles yet.</p>}
         <div className={styles.grid}>
           {artists.map((a) => (

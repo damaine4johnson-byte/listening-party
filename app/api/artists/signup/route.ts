@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { isArtistTier } from "../../../../lib/artist-tiers";
 import { persistHostIdentity } from "../../../../lib/host-profile";
-import { claimUsername, generateUniqueUsername, readUsernames, usernameForHost } from "../../../../lib/artist-username";
+import { USERNAME_PATTERN, claimUsername, generateUniqueUsername, normalizeUsername } from "../../../../lib/artist-username";
 import {
   createHostSessionToken,
   HOST_SESSION_COOKIE,
@@ -32,10 +32,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Google signup could not be verified." }, { status: 400 });
   }
   const values = input && typeof input === "object"
-    ? input as { accessToken?: unknown; planTier?: unknown }
+    ? input as { accessToken?: unknown; planTier?: unknown; username?: unknown }
     : {};
   if (typeof values.accessToken !== "string" || values.accessToken.length > 8192 || !isArtistTier(values.planTier)) {
     return NextResponse.json({ error: "Choose a plan and complete Google signup." }, { status: 400 });
+  }
+  const requestedUsername = typeof values.username === "string"
+    ? normalizeUsername(values.username).replace(/[^a-z0-9_]/g, "")
+    : "";
+  if (requestedUsername && !USERNAME_PATTERN.test(requestedUsername)) {
+    return NextResponse.json({ error: "Usernames are 3-24 characters: lowercase letters, numbers and underscores, starting with a letter." }, { status: 400 });
   }
 
   try {
@@ -59,12 +65,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Artist profile storage is not configured." }, { status: 503 });
     }
 
-    // Best-effort unique handle on first signup; existing artists keep theirs.
+    // Artists pick their own username at signup; fall back to a generated one.
     try {
-      if (!usernameForHost(await readUsernames(true), hostId)) {
-        await claimUsername(hostId, await generateUniqueUsername(email.split("@")[0]));
+      const claim = requestedUsername || (await generateUniqueUsername(email.split("@")[0]));
+      if ((await claimUsername(hostId, claim, email)) !== "ok") {
+        return NextResponse.json({ error: "That username is already taken. Go back and pick another." }, { status: 409 });
       }
-    } catch {}
+    } catch {
+      return NextResponse.json({ error: "Could not claim that username." }, { status: 503 });
+    }
 
     const response = NextResponse.json({ created: true });
     response.cookies.set(HOST_SESSION_COOKIE, createHostSessionToken(hostId), {
