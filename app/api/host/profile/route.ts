@@ -31,7 +31,18 @@ export async function GET(request: NextRequest) {
         .from("host_profiles")
         .select("display_name, bio, avatar_url, contact_email, link_in_bio, plan_tier, subscription_status")
         .eq("host_id", session.hostId)
-        .maybeSingle(),
+        .maybeSingle()
+        .then(async (r) => {
+          // Older projects may not have link_in_bio yet (supabase/link_in_bio.sql).
+          if (r.error?.code === "42703") {
+            return supabase
+              .from("host_profiles")
+              .select("display_name, bio, avatar_url, contact_email, plan_tier, subscription_status")
+              .eq("host_id", session.hostId)
+              .maybeSingle();
+          }
+          return r;
+        }),
     ]);
 
     if (accountResult.error || !accountResult.data || profileResult.error) {
@@ -147,20 +158,18 @@ export async function PUT(request: NextRequest) {
     const subscriptionStatus = planChanged
       ? planTier === "free" ? "active" : "pending"
       : currentProfile?.subscription_status ?? (planTier === "free" ? "active" : "pending");
-    const { error } = await supabase.from("host_profiles").upsert(
-      {
-        host_id: session.hostId,
-        display_name: displayName,
-        bio,
-        avatar_url: avatarUrl,
-        contact_email: contactEmail,
-        link_in_bio: linkInBio,
-        plan_tier: planTier,
-        subscription_status: subscriptionStatus,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "host_id" },
-    );
+    const upsertRow: Record<string, unknown> = {
+      host_id: session.hostId,
+      display_name: displayName,
+      bio,
+      avatar_url: avatarUrl,
+      contact_email: contactEmail,
+      plan_tier: planTier,
+      subscription_status: subscriptionStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (linkInBio) upsertRow.link_in_bio = linkInBio; // skipped when the column hasn't been added yet
+    const { error } = await supabase.from("host_profiles").upsert(upsertRow, { onConflict: "host_id" });
     if (error) {
       return NextResponse.json({ error: "Could not save host profile." }, { status: 503 });
     }

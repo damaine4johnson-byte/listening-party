@@ -13,7 +13,11 @@ export async function GET(request: NextRequest) {
   const db = createSupabaseAdmin();
   const [accounts, profiles, rooms, usernames] = await Promise.all([
     db.from("host_accounts").select("host_id, auth_provider, account_identity, account_status, created_at").order("created_at", { ascending: false }).limit(500),
-    db.from("host_profiles").select("host_id, display_name, bio, contact_email, plan_tier, subscription_status").limit(500),
+    db.from("host_profiles").select("host_id, display_name, bio, contact_email, link_in_bio, plan_tier, subscription_status").limit(500).then(async (r) =>
+      // Older projects may not have link_in_bio yet (supabase/link_in_bio.sql).
+      r.error?.code === "42703"
+        ? db.from("host_profiles").select("host_id, display_name, bio, contact_email, plan_tier, subscription_status").limit(500)
+        : r),
     db.from("rooms").select("host_id").limit(10_000),
     db.from("artist_usernames").select("username, host_id").limit(1_000).then((r) => (r.error ? { data: [] } : r)),
   ]);

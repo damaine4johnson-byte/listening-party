@@ -28,20 +28,30 @@ export async function resolveHostId(handle: unknown): Promise<string | null> {
 export async function getPublicArtist(handle: string): Promise<PublicArtist | null> {
   const hostId = await resolveHostId(handle);
   if (!hostId) return null;
-  const { data } = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url, link_in_bio").eq("host_id", hostId).maybeSingle();
-  if (!data) return null;
+  const { data, error } = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url, link_in_bio").eq("host_id", hostId).maybeSingle();
+  if (!data && error?.code !== "42703") return null;
+  let row: Record<string, unknown> | null = data as Record<string, unknown> | null;
+  if (!row) {
+    const fallback = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url").eq("host_id", hostId).maybeSingle();
+    if (!fallback.data) return null;
+    row = fallback.data as Record<string, unknown>;
+  }
   const username = await usernameForHost(hostId).catch(() => null);
   return {
     hostId, handle: username || handleOf(hostId),
-    name: (data.display_name as string) || "Artist", bio: (data.bio as string) ?? "", avatarUrl: (data.avatar_url as string) ?? "",
-    linkInBio: (data.link_in_bio as string) ?? "",
+    name: (row.display_name as string) || "Artist", bio: (row.bio as string) ?? "", avatarUrl: (row.avatar_url as string) ?? "",
+    linkInBio: (row.link_in_bio as string) ?? "",
     followers: await followerCount(hostId),
   };
 }
 
 export async function listPublicArtists(): Promise<PublicArtist[]> {
   const db = createSupabaseAdmin();
-  const { data: profiles } = await db.from("host_profiles").select("host_id, display_name, bio, avatar_url, link_in_bio").neq("display_name", "").limit(300);
+  let profiles: Record<string, unknown>[] | null = null;
+  const primary = await db.from("host_profiles").select("host_id, display_name, bio, avatar_url, link_in_bio").neq("display_name", "").limit(300);
+  profiles = (primary.error?.code === "42703"
+    ? (await db.from("host_profiles").select("host_id, display_name, bio, avatar_url").neq("display_name", "").limit(300)).data
+    : primary.data) as Record<string, unknown>[] | null;
   const usernames = await readUsernames().catch(() => ({}) as Record<string, string>);
 
   if (!profiles?.length) return [];
@@ -52,7 +62,7 @@ export async function listPublicArtists(): Promise<PublicArtist[]> {
   for (const f of follows ?? []) counts.set(f.host_id as string, (counts.get(f.host_id as string) ?? 0) + 1);
   return profiles.filter((p) => activeIds.has(p.host_id as string)).map((p) => ({
     hostId: p.host_id as string, handle: usernames[p.host_id as string] || handleOf(p.host_id as string), name: p.display_name as string,
-    bio: (p.bio as string) ?? "", avatarUrl: (p.avatar_url as string) ?? "", linkInBio: (p.link_in_bio as string) ?? "", followers: counts.get(p.host_id as string) ?? 0,
+    bio: (p.bio as string) ?? "", avatarUrl: (p.avatar_url as string) ?? "", linkInBio: (p.link_in_bio as string | undefined) ?? "", followers: counts.get(p.host_id as string) ?? 0,
   })).sort((a, b) => b.followers - a.followers || a.name.localeCompare(b.name));
 }
 
@@ -78,13 +88,25 @@ export async function searchPublicArtists(query: string, limit = 8): Promise<Pub
 }
 
 export async function getPublicArtistById(hostId: string): Promise<PublicArtist | null> {
-  const { data } = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url, link_in_bio").eq("host_id", hostId).maybeSingle();
-  if (!data) return null;
+  const { data, error } = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url, link_in_bio").eq("host_id", hostId).maybeSingle();
+  if (!data) {
+    if (error?.code === "42703") {
+      const fallback = await createSupabaseAdmin().from("host_profiles").select("display_name, bio, avatar_url").eq("host_id", hostId).maybeSingle();
+      if (!fallback.data) return null;
+      const u = await usernameForHost(hostId).catch(() => null);
+      return {
+        hostId, handle: u || handleOf(hostId),
+        name: (fallback.data.display_name as string) || "Artist", bio: (fallback.data.bio as string) ?? "", avatarUrl: (fallback.data.avatar_url as string) ?? "", linkInBio: "",
+        followers: await followerCount(hostId),
+      };
+    }
+    return null;
+  }
   const username = await usernameForHost(hostId).catch(() => null);
   return {
     hostId, handle: username || handleOf(hostId),
     name: (data.display_name as string) || "Artist", bio: (data.bio as string) ?? "", avatarUrl: (data.avatar_url as string) ?? "",
-    linkInBio: (data.link_in_bio as string) ?? "",
+    linkInBio: ((data as Record<string, unknown>).link_in_bio as string) ?? "",
     followers: await followerCount(hostId),
   };
 }
