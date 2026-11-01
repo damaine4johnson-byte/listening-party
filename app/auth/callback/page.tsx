@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { getOAuthAccessToken } from "../../../lib/oauth-callback";
+import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 
 export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Finding your account...");
@@ -14,10 +15,9 @@ export default function AuthCallbackPage() {
         setMessage("Sign-in is not configured.");
         return;
       }
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
+      const { accessToken, error } = await getOAuthAccessToken(supabase, oauthCallbackUrl);
       if (error || !accessToken) {
-        setMessage("Sign-in could not be completed. Return and try again.");
+        setMessage(error ?? "Sign-in could not be completed. Return and try again.");
         return;
       }
 

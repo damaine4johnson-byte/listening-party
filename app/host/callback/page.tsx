@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { getOAuthAccessToken } from "../../../lib/oauth-callback";
+import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 
 export default function HostGoogleCallback() {
   const [message, setMessage] = useState("Verifying your Google account...");
@@ -15,10 +16,9 @@ export default function HostGoogleCallback() {
         return;
       }
 
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
+      const { accessToken, error } = await getOAuthAccessToken(supabase, oauthCallbackUrl);
       if (error || !accessToken) {
-        setMessage("Google sign-in could not be completed. Return to host sign in and try again.");
+        setMessage(error ?? "Google sign-in could not be completed. Return to host sign in and try again.");
         return;
       }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { getOAuthAccessToken } from "../../../lib/oauth-callback";
+import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 
 export default function AdminGoogleCallback() {
   const [message, setMessage] = useState("Verifying your Google account...");
@@ -9,9 +10,10 @@ export default function AdminGoogleCallback() {
   useEffect(() => {
     async function finish() {
       if (!supabase) return setMessage("Supabase is not configured.");
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
-      if (error || !accessToken) return setMessage("Google sign-in could not be completed. Return to /admin and try again.");
+      const { accessToken, error } = await getOAuthAccessToken(supabase, oauthCallbackUrl);
+      if (error || !accessToken) {
+        return setMessage(error ?? "Google sign-in could not be completed. Return to /admin and try again.");
+      }
       try {
         const response = await fetch("/api/admin/google-session", {
           method: "POST",

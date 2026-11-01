@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "../../../lib/supabase";
+import { getOAuthAccessToken } from "../../../lib/oauth-callback";
+import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 
 export default function ListenerWalletCallback() {
   const [message, setMessage] = useState("Verifying your Google account...");
@@ -14,9 +15,9 @@ export default function ListenerWalletCallback() {
         setMessage("Listener sign-in is not configured.");
         return;
       }
-      const { data, error } = await supabase.auth.getSession();
-      if (error || !data.session?.access_token) {
-        if (active) setMessage("Google sign-in could not be completed. Return to the wallet and try again.");
+      const { accessToken, error } = await getOAuthAccessToken(supabase, oauthCallbackUrl);
+      if (error || !accessToken) {
+        if (active) setMessage(error ?? "Google sign-in could not be completed. Return to the wallet and try again.");
         return;
       }
       // Honor ?next=/profile so sign-ins started from other pages land back there.
@@ -28,12 +29,12 @@ export default function ListenerWalletCallback() {
       if (chosenUsername && /^[a-z][a-z0-9_]{2,23}$/.test(chosenUsername)) {
         await fetch("/api/listeners/credentials", {
           method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify({ username: chosenUsername }),
         }).catch(() => undefined);
       }
       const response = await fetch("/api/coins/balance", {
-        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
       if (!response.ok) {

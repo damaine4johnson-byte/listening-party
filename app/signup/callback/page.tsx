@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { getOAuthAccessToken } from "../../../lib/oauth-callback";
+import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 import { isArtistTier } from "../../../lib/artist-tiers";
 
 export default function ArtistSignupCallback() {
@@ -16,10 +17,9 @@ export default function ArtistSignupCallback() {
         return;
       }
 
-      const { data, error } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
+      const { accessToken, error } = await getOAuthAccessToken(supabase, oauthCallbackUrl);
       if (error || !accessToken) {
-        setMessage("Google signup could not be completed. Return to artist signup and try again.");
+        setMessage(error ?? "Google signup could not be completed. Return to artist signup and try again.");
         return;
       }
 
