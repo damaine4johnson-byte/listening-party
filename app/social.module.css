@@ -74,3 +74,9 @@
 .search button { padding: 0 22px; border: 0; border-radius: 999px; background: var(--grad); color: #1a0d00; font: inherit; font-weight: 900; cursor: pointer; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; }
 .chip { padding: 6px 14px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
+
+.reactions { display: flex; gap: 6px; padding: 4px 16px 0; flex-wrap: wrap; }
+.react { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 16px; cursor: pointer; transition: transform .12s; }
+.react:hover { transform: scale(1.12); }
+.react b { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+.react.on { border-color: var(--accent); background: rgb(255 90 42 / 18%); }

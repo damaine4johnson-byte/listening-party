@@ -5,15 +5,16 @@ import { supabase } from "../../lib/supabase";
 import styles from "../social.module.css";
 
 type Tab = "all" | "following" | "saved";
-type Engagement = { likes: Record<string, number>; comments: Record<string, number>; liked: Set<string>; saved: Set<string>; signedIn: boolean };
+type Engagement = { likes: Record<string, number>; comments: Record<string, number>; liked: Set<string>; saved: Set<string>; reactions: Record<string, Record<string, number>>; mine: Record<string, string>; signedIn: boolean };
 type Ctx = {
   tab: Tab;
   following: Set<string>;
   engagement: Engagement;
   toggle: (postId: string, kind: "like" | "save") => Promise<string | null>;
+  react: (postId: string, emoji: string) => Promise<string | null>;
 };
 
-const EMPTY: Engagement = { likes: {}, comments: {}, liked: new Set(), saved: new Set(), signedIn: false };
+const EMPTY: Engagement = { likes: {}, comments: {}, liked: new Set(), saved: new Set(), reactions: {}, mine: {}, signedIn: false };
 const FeedContext = createContext<Ctx | null>(null);
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -35,7 +36,7 @@ export function FeedShell({ postIds, tabs = true, children }: { postIds: string[
       fetch(`/api/feed/engagement?posts=${idsKey}`, { headers, cache: "no-store" }).then((r) => r.json()).catch(() => null),
       fetch("/api/feed/mine", { headers, cache: "no-store" }).then((r) => r.json()).catch(() => null),
     ]);
-    if (eng) setEngagement({ likes: eng.likes ?? {}, comments: eng.comments ?? {}, liked: new Set(eng.liked ?? []), saved: new Set(eng.saved ?? []), signedIn: Boolean(eng.signedIn) });
+    if (eng) setEngagement({ likes: eng.likes ?? {}, comments: eng.comments ?? {}, liked: new Set(eng.liked ?? []), saved: new Set(eng.saved ?? []), reactions: eng.reactions ?? {}, mine: eng.mine ?? {}, signedIn: Boolean(eng.signedIn) });
     if (mine) setFollowing(new Set(mine.following ?? []));
   }, [idsKey]);
 
@@ -65,7 +66,29 @@ export function FeedShell({ postIds, tabs = true, children }: { postIds: string[
     return null;
   }, [engagement]);
 
-  const value = useMemo(() => ({ tab, following, engagement, toggle }), [tab, following, engagement, toggle]);
+  const react = useCallback(async (postId: string, emoji: string) => {
+    if (!engagement.signedIn) return "Sign in with Google to react to posts.";
+    const previous = engagement.mine[postId];
+    const next = previous === emoji ? undefined : emoji;
+    const apply = (from: string | undefined, to: string | undefined) => setEngagement((e) => {
+      const counts = { ...(e.reactions[postId] ?? {}) };
+      if (from) counts[from] = Math.max(0, (counts[from] ?? 0) - 1);
+      if (to) counts[to] = (counts[to] ?? 0) + 1;
+      const mine = { ...e.mine };
+      if (to) mine[postId] = to; else delete mine[postId];
+      return { ...e, reactions: { ...e.reactions, [postId]: counts }, mine };
+    });
+    apply(previous, next);
+    const response = await fetch("/api/feed/engagement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify(next ? { post: postId, action: "react", emoji: next } : { post: postId, action: "unreact" }),
+    }).catch(() => null);
+    if (!response?.ok) { apply(next, previous); return "Could not save that. Try again."; }
+    return null;
+  }, [engagement]);
+
+  const value = useMemo(() => ({ tab, following, engagement, toggle, react }), [tab, following, engagement, toggle, react]);
 
   return (
     <FeedContext.Provider value={value}>
@@ -81,6 +104,8 @@ export function FeedShell({ postIds, tabs = true, children }: { postIds: string[
     </FeedContext.Provider>
   );
 }
+
+const REACTION_SET = [["fire", "🔥", "Fire"], ["clap", "👏", "Clap"], ["laugh", "😂", "Laugh"], ["wow", "😮", "Wow"], ["sad", "😢", "Sad"]] as const;
 
 function useFeed() {
   const ctx = useContext(FeedContext);
@@ -107,7 +132,7 @@ export function FeedItem({ postId, hostKey, children }: { postId: string; hostKe
 }
 
 export function PostActions({ postId, shareTitle, onComments, commentsOpen }: { postId: string; shareTitle: string; onComments: () => void; commentsOpen: boolean }) {
-  const { engagement, toggle } = useFeed();
+  const { engagement, toggle, react } = useFeed();
   const [toast, setToast] = useState("");
   const [pop, setPop] = useState(false);
   const liked = engagement.liked.has(postId);
@@ -132,7 +157,19 @@ export function PostActions({ postId, shareTitle, onComments, commentsOpen }: { 
     } catch { /* share dismissed */ }
   }
 
+  const counts = engagement.reactions[postId] ?? {};
+  const mineEmoji = engagement.mine[postId];
+
   return (
+    <>
+    <div className={styles.reactions} role="group" aria-label="React to this post">
+      {REACTION_SET.map(([id, symbol, label]) => (
+        <button key={id} type="button" className={`${styles.react} ${mineEmoji === id ? styles.on : ""}`} aria-pressed={mineEmoji === id} aria-label={label}
+          onClick={async () => { const error = await react(postId, id); if (error) flash(error); }}>
+          {symbol}{(counts[id] ?? 0) > 0 && <b>{counts[id]}</b>}
+        </button>
+      ))}
+    </div>
     <div className={styles.actions}>
       <button type="button" className={`${styles.act} ${liked ? styles.on : ""} ${pop ? styles.pop : ""}`} aria-pressed={liked} aria-label={liked ? "Unlike" : "Like"} onClick={() => void like()}>
         {liked ? "♥" : "♡"} {(engagement.likes[postId] ?? 0) > 0 && engagement.likes[postId]}
@@ -147,5 +184,6 @@ export function PostActions({ postId, shareTitle, onComments, commentsOpen }: { 
       </button>
       {toast && <span className={styles.toast} role="status">{toast}</span>}
     </div>
+    </>
   );
 }
