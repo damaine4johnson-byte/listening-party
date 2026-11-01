@@ -41,10 +41,9 @@ export default function SiteMenu() {
   }, []);
 
   const load = useCallback(async (token: string) => {
-    if (!token) { setViewer(EMPTY); setReady(true); return; }
-    // Listener data (wallet balance + listener profile).
+    // Listener data (wallet balance + listener profile); skipped without a Google session.
     let next: Viewer = EMPTY;
-    try {
+    if (token) try {
       const [profileRes, balanceRes] = await Promise.all([
         fetch("/api/listeners/profile", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
         fetch("/api/coins/balance", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
