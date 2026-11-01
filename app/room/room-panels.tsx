@@ -26,6 +26,36 @@ type PlaylistProps = {
   onStartCoinTip: (track: RoomTrack, coins: number) => void;
 };
 
+// Per-track hearts for everyone in the room; counts refresh when the playlist changes.
+function useTrackLikes(trackCount: number) {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [mine, setMine] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/rooms/track-likes", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (active && d) { setCounts(d.counts ?? {}); setMine(new Set(d.mine ?? [])); } })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [trackCount]);
+
+  async function toggle(trackId: string) {
+    const liked = !mine.has(trackId);
+    setMine((m) => { const n = new Set(m); if (liked) n.add(trackId); else n.delete(trackId); return n; });
+    setCounts((c) => ({ ...c, [trackId]: Math.max(0, (c[trackId] ?? 0) + (liked ? 1 : -1)) }));
+    const response = await fetch("/api/rooms/track-likes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ track: trackId, liked }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      setMine((m) => { const n = new Set(m); if (liked) n.delete(trackId); else n.add(trackId); return n; });
+      setCounts((c) => ({ ...c, [trackId]: Math.max(0, (c[trackId] ?? 0) + (liked ? -1 : 1)) }));
+    }
+  }
+
+  return { counts, mine, toggle };
+}
+
 // The shared playlist panel: shows up-next, lets hosts drag to reorder, and lets
 // listeners open the per-track tip menu with card or coin options.
 export function Playlist({
@@ -33,6 +63,7 @@ export function Playlist({
   reordering, dragIndex, setDragIndex, tipTrackId, tipBusy, coinSignedIn, coinBalance,
   onSelectTrack, onMoveTrack, onToggleTipMenu, onStartCardTip, onStartCoinTip,
 }: PlaylistProps) {
+  const likes = useTrackLikes(tracks.length);
   return (
     <section className="rm-playlist" aria-labelledby="playlist-title">
       <h2 id="playlist-title">Up next <span className="small">{tracks.length} tracks</span></h2>
@@ -71,6 +102,9 @@ export function Playlist({
                   tipBusy={tipBusy}
                   coinSignedIn={coinSignedIn}
                   coinBalance={coinBalance}
+                  likeCount={likes.counts[track.id] ?? 0}
+                  liked={likes.mine.has(track.id)}
+                  onToggleLike={() => void likes.toggle(track.id)}
                   onSelectTrack={onSelectTrack}
                   onMoveTrack={onMoveTrack}
                   onToggleTipMenu={onToggleTipMenu}
@@ -98,6 +132,9 @@ type PlaylistRowProps = {
   tipBusy: boolean;
   coinSignedIn: boolean;
   coinBalance: number | null;
+  likeCount: number;
+  liked: boolean;
+  onToggleLike: () => void;
   onSelectTrack: (track: RoomTrack) => void;
   onMoveTrack: (from: number, to: number) => void;
   onToggleTipMenu: (trackId: string) => void;
@@ -123,6 +160,15 @@ function PlaylistRow(props: PlaylistRowProps) {
         </span>
         <span className="rm-track-title">{track.title}</span>
         <span className="small">{track.durationSeconds ? formatTime(track.durationSeconds) : "Audio"}</span>
+      </button>
+      <button
+        type="button"
+        className={`rm-like ${props.liked ? "on" : ""}`}
+        aria-pressed={props.liked}
+        aria-label={`${props.liked ? "Unlike" : "Like"} ${track.title}`}
+        onClick={props.onToggleLike}
+      >
+        {props.liked ? "♥" : "♡"} {props.likeCount > 0 && <span>{props.likeCount}</span>}
       </button>
       {!isHost && !current && (
         <button type="button" className="rm-boost" disabled={tipBusy} onClick={() => props.onToggleTipMenu(track.id)}>

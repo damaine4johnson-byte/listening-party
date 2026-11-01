@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { useTheme } from "./theme-provider";
 import NotificationBell from "./notification-bell";
 import styles from "./site-menu.module.css";
 
@@ -26,6 +27,7 @@ export default function SiteMenu() {
   const [ready, setReady] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const { theme, social, toggle: toggleTheme } = useTheme();
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -118,7 +120,14 @@ export default function SiteMenu() {
 
   return (
     <div className={styles.bar} ref={box}>
-      <div className={styles.left} />
+      <div className={styles.left}>
+        <nav className={styles.links} aria-label="Primary">
+          <Link href="/discover">Discover</Link>
+          <Link href="/feed">Feed</Link>
+          <Link href="/artists">Artists</Link>
+        </nav>
+        {social && <button type="button" className={styles.iconLink} onClick={toggleTheme} aria-label="Toggle light or dark theme">{theme === "dark" ? "☀️" : "🌙"}</button>}
+      </div>
       <div className={styles.right}>
         <NotificationBell />
         <button type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((v) => !v)}>

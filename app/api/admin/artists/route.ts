@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const auth = await authorize(request);
   if ("response" in auth) return auth.response;
   const db = createSupabaseAdmin();
-  const [accounts, profiles, rooms, usernames] = await Promise.all([
+  const [accounts, profiles, rooms, usernames, verified] = await Promise.all([
     db.from("host_accounts").select("host_id, auth_provider, account_identity, account_status, created_at").order("created_at", { ascending: false }).limit(500),
     db.from("host_profiles").select("host_id, display_name, bio, contact_email, link_in_bio, plan_tier, subscription_status").limit(500).then(async (r) =>
       // Older projects may not have link_in_bio yet (supabase/link_in_bio.sql).
@@ -20,11 +20,13 @@ export async function GET(request: NextRequest) {
         : r),
     db.from("rooms").select("host_id").limit(10_000),
     db.from("artist_usernames").select("username, host_id").limit(1_000).then((r) => (r.error ? { data: [] } : r)),
+    db.from("artist_verified").select("host_id").limit(1_000).then((r) => (r.error ? { data: [] } : r)),
   ]);
   if (accounts.error || profiles.error) return NextResponse.json({ error: "Could not load artists." }, { status: 503 });
 
   const profileById = new Map((profiles.data ?? []).map((p) => [p.host_id, p]));
   const usernameByHost = new Map((usernames.data ?? []).map((u) => [u.host_id, u.username]));
+  const verifiedIds = new Set((verified.data ?? []).map((v) => v.host_id));
   const roomCounts = new Map<string, number>();
   for (const r of rooms.data ?? []) if (r.host_id) roomCounts.set(r.host_id, (roomCounts.get(r.host_id) ?? 0) + 1);
 
@@ -33,6 +35,7 @@ export async function GET(request: NextRequest) {
       ...a,
       profile: profileById.get(a.host_id) ?? null,
       username: usernameByHost.get(a.host_id) ?? null,
+      verified: verifiedIds.has(a.host_id),
       roomCount: roomCounts.get(a.host_id) ?? 0,
     })),
   });
@@ -56,6 +59,14 @@ export async function PATCH(request: NextRequest) {
     }
     const { error } = await db.from("host_accounts").update({ account_status: body.accountStatus, updated_at: now }).eq("host_id", hostId);
     if (error) return NextResponse.json({ error: "Could not update artist." }, { status: 503 });
+  }
+
+  if (body?.verified !== undefined) {
+    if (typeof body.verified !== "boolean") return NextResponse.json({ error: "Invalid verified flag." }, { status: 400 });
+    const { error } = body.verified
+      ? await db.from("artist_verified").upsert({ host_id: hostId })
+      : await db.from("artist_verified").delete().eq("host_id", hostId);
+    if (error) return NextResponse.json({ error: "Could not update verification." }, { status: 503 });
   }
 
   const profile: Record<string, string> = {};

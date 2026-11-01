@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { discoverArtists } from "../lib/discover";
+import { LiveNowStrip } from "./stories-row";
 import JoinForm from "./join-form";
 import LogoMark from "./logo-mark";
 import HomeEffects from "./home-effects";
@@ -10,7 +12,10 @@ export const metadata: Metadata = {
   openGraph: { url: "/" },
 };
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const liveArtists = (await discoverArtists().catch(() => [])).filter((a) => a.live);
   return (
     <main className={styles.page}>
       <HomeEffects />
@@ -64,6 +69,13 @@ export default function Home() {
           </article>
         ))}
       </section>
+
+      {liveArtists.length > 0 && (
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }} aria-label="Live now">
+          <h2 style={{ margin: "0 0 10px" }}>🔴 Live now</h2>
+          <LiveNowStrip artists={liveArtists} />
+        </section>
+      )}
 
       <section className={styles.entry} id="enter-room" aria-labelledby="entry-title">
         <div className={styles.entryHeading}>

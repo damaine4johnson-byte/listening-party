@@ -11,6 +11,8 @@ import NewPostButton from "../../host/new-post-button";
 import { listGallery } from "../../../lib/artist-gallery";
 import GalleryEditor from "../../host/profile/gallery-editor";
 import galleryStyles from "./gallery.module.css";
+import { verifiedHostIds } from "../../../lib/discover";
+import { VerifiedBadge } from "../../artist-badges";
 import FollowButton from "../follow-button";
 import styles from "./profile.module.css";
 
@@ -39,6 +41,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   // Before the follows/feed migration runs, the host_id column does not exist.
   const posts = (postsResult.error ? [] : postsResult.data) as Post[];
   const isLive = rooms.some((room) => room.status === "live");
+  const isVerified = (await verifiedHostIds().catch(() => new Set<string>())).has(artist.hostId);
   const initial = artist.name.charAt(0).toUpperCase();
   const username = /^[0-9a-f]{16}$/.test(artist.handle) ? artist.name : artist.handle;
 
@@ -54,7 +57,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         </div>
         <div className={styles.headMain}>
           <div className={styles.handleRow}>
-            <h1 className={styles.username}>{username}</h1>
+            <h1 className={styles.username}>{username}{isVerified && <VerifiedBadge />}</h1>
             {isOwner
               ? <Link className={styles.editBtn} href="/host/profile">Edit profile</Link>
               : <FollowButton handle={artist.handle} initialFollowers={artist.followers} />}

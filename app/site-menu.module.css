@@ -176,3 +176,7 @@
         min-width: 236px;
     }
 }
+.links { display: none; gap: 14px; }
+.links a { color: var(--text, #fff); text-decoration: none; font-weight: 700; font-size: 14px; }
+.links a:hover { color: var(--accent, #ff5a2a); }
+@media (min-width: 721px) { .links { display: flex; } }

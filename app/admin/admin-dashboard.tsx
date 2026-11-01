@@ -404,6 +404,7 @@ function ArtistRow({ a, canEdit, onSave, onRemoveUsername }: { a: Json; canEdit:
           onClick={() => onSave({ accountStatus: a.account_status === "active" ? "suspended" : "active" })}>
           {a.account_status === "active" ? "Suspend" : "Reactivate"}
         </button>
+        <button disabled={!canEdit} onClick={() => onSave({ verified: !a.verified })}>{a.verified ? "Remove ✓ verified" : "Verify ✓"}</button>
         {a.username && <button className="danger" disabled={!canEdit} onClick={onRemoveUsername}>Remove username</button>}
       </div>
     </div>

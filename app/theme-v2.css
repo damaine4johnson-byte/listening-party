@@ -1,0 +1,17 @@
+:root, html[data-theme="dark"] {
+  --text: #f6f3ff; --text-dim: #aaa3c4; --surface: #15101f; --surface2: #1f1830;
+  --border: rgb(255 255 255 / 12%); --accent: #ff5a2a;
+  --grad: linear-gradient(135deg, #ff3b30, #ff7a1a 55%, #ffc21a);
+  --red: #ff5a2a;
+}
+html[data-theme="light"] {
+  --bg: #fbf7f2; --text: #1c1526; --text-dim: #6a617d; --surface: #ffffff; --surface2: #f1ebe4;
+  --border: rgb(28 21 38 / 14%); --accent: #e8431a;
+  color-scheme: light;
+}
+html[data-theme="light"] body { background: var(--bg); color: var(--text); }
+.panel { border-radius: 18px; }
+.btn, button.btn { background: var(--grad); border: 0; color: #1a0d05; font-weight: 800; border-radius: 999px; }
+input, textarea, select { border-radius: 12px; }
+body { padding-bottom: env(safe-area-inset-bottom); }
+@media (max-width: 720px) { body.has-tabs { padding-bottom: 72px; } }

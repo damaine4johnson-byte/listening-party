@@ -1,14 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import feed from "./feed.module.css";
 
 type Comment = { id: string; author_name: string; body: string; created_at: string; mine: boolean };
 
-export default function PostComments({ postId }: { postId: string }) {
-  const [open, setOpen] = useState(false);
+// With `controlledOpen` the parent owns the toggle (feed cards); otherwise it renders its own button.
+export default function PostComments({ postId, controlledOpen }: { postId: string; controlledOpen?: boolean }) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = setOwnOpen;
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [text, setText] = useState("");
@@ -50,11 +53,18 @@ export default function PostComments({ postId }: { postId: string }) {
     setComments((c) => (c ?? []).filter((x) => x.id !== id));
   }
 
+  useEffect(() => {
+    if (controlledOpen && comments === null) void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlledOpen]);
+
   return (
     <div className={feed.comments}>
-      <button type="button" className={feed.commentToggle} onClick={() => void toggle()}>
-        💬 {open ? "Hide comments" : comments === null ? "Comments" : `Comments (${comments.length})`}
-      </button>
+      {controlledOpen === undefined && (
+        <button type="button" className={feed.commentToggle} onClick={() => void toggle()}>
+          💬 {open ? "Hide comments" : comments === null ? "Comments" : `Comments (${comments.length})`}
+        </button>
+      )}
       {open && (
         <div>
           {comments === null && <p className={feed.muted}>Loading…</p>}
