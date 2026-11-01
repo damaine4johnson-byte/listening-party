@@ -32,6 +32,12 @@ export async function getOAuthAccessToken(
   }
 
   try {
+    const { data } = await client.auth.getSession();
+    if (data.session?.access_token) {
+      clearOAuthResponse();
+      return { accessToken: data.session.access_token, error: null };
+    }
+
     if (accessToken) {
       if (refreshToken) {
         const { data: restored } = await client.auth.setSession({
@@ -53,12 +59,6 @@ export async function getOAuthAccessToken(
         clearOAuthResponse();
         return { accessToken: exchanged.session.access_token, error: null };
       }
-    }
-
-    const { data } = await client.auth.getSession();
-    if (data.session?.access_token) {
-      clearOAuthResponse();
-      return { accessToken: data.session.access_token, error: null };
     }
   } catch {
     if (accessToken) {
