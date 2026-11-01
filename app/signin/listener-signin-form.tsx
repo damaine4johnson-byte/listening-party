@@ -59,7 +59,7 @@ export default function ListenerSigninForm() {
       const routeResult = await routeResponse.json();
       if (!routeResponse.ok) { setError(routeResult.error || "Could not resolve your account."); setPending(false); return; }
       if (routeResult.accountType === "host") await supabase.auth.signOut();
-      window.location.replace(routeResult.destination === "/host" ? "/host" : routeResult.accountType === "host" ? "/host/profile" : "/profile");
+      window.location.replace(routeResult.destination === "/host" ? "/host" : routeResult.accountType === "host" ? "/profile" : "/profile");
     } catch {
       setError("Could not sign in. Try again."); setPending(false);
     }

@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ARTIST_TIERS, type ArtistTier } from "../../../lib/artist-tiers";
 import { AvatarCropper } from "./avatar-cropper";
-import GalleryEditor from "./gallery-editor";
 import styles from "./edit-profile.module.css";
 import NewPostButton from "../new-post-button";
 
@@ -221,8 +220,6 @@ export default function HostProfileForm() {
           <p className="small">Account identity and contact email are visible only in the host console.</p>
         </section>
       </div>
-
-      <GalleryEditor />
 
       <section style={{ marginTop: 20 }} aria-labelledby="artist-tier-title">
         <h2 id="artist-tier-title">Artist tier</h2>

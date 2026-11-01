@@ -100,7 +100,7 @@ export default function SiteMenu() {
 
   const links = viewer.kind === "artist"
     ? [
-      { href: profileHref, label: "Profile", icon: "👤" },
+      { href: viewer.handle ? `/artists/${viewer.handle}` : "/host/profile", label: "Profile", icon: "👤" },
       { href: "/feed", label: "Feed", icon: "▦" },
       { href: "/host", label: "Rooms", icon: "🎧" },
       { href: "/bank", label: "Balance", icon: "💰" },

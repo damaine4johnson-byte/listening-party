@@ -9,6 +9,7 @@ import { HOST_SESSION_COOKIE } from "../../../lib/host-session";
 import { readActiveHostSession } from "../../../lib/host-profile";
 import NewPostButton from "../../host/new-post-button";
 import { listGallery } from "../../../lib/artist-gallery";
+import GalleryEditor from "../../host/profile/gallery-editor";
 import galleryStyles from "./gallery.module.css";
 import FollowButton from "../follow-button";
 import styles from "./profile.module.css";
@@ -88,7 +89,9 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         {rooms.length > 0 && <p className={styles.empty} style={{ marginTop: 10 }}>Followers get the room code in their notifications 🔔</p>}
       </section>
 
-      {galleryPhotos.length > 0 && (
+      {isOwner && <GalleryEditor />}
+
+      {!isOwner && galleryPhotos.length > 0 && (
         <section className={styles.section} style={{ marginTop: 18 }}>
           <h2>Gallery</h2>
           <div className={galleryStyles.grid}>

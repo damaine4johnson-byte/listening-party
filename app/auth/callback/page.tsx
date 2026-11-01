@@ -35,7 +35,7 @@ export default function AuthCallbackPage() {
       if (result.accountType === "host") await supabase.auth.signOut();
       window.location.replace(result.destination === "/wallet" || result.destination === "/host"
         ? result.destination
-        : result.accountType === "host" ? "/host/profile" : "/profile");
+        : result.accountType === "host" ? "/profile" : "/profile");
     }
 
     void resolveAccount().catch(() => {

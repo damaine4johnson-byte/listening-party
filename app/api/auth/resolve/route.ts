@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       if (host.account_status !== "active") {
         return NextResponse.json({ error: "This host account is suspended." }, { status: 403 });
       }
-      const destination = values.next === "/host" ? "/host" : "/host/profile";
+      const destination = values.next === "/host" ? "/host" : "/profile";
       const response = NextResponse.json({ accountType: "host", destination });
       response.cookies.set(HOST_SESSION_COOKIE, createHostSessionToken(hostId), {
         httpOnly: true,
