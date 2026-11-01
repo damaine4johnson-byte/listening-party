@@ -7,7 +7,6 @@ import { createSupabaseAdmin } from "../../../lib/supabase-admin";
 import { cookies } from "next/headers";
 import { HOST_SESSION_COOKIE } from "../../../lib/host-session";
 import { readActiveHostSession } from "../../../lib/host-profile";
-import NewPostButton from "../../host/new-post-button";
 import { listGallery } from "../../../lib/artist-gallery";
 import GalleryEditor from "../../host/profile/gallery-editor";
 import galleryStyles from "./gallery.module.css";
@@ -128,7 +127,6 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         </div>
       </section>
 
-      {isOwner && <NewPostButton />}
       <Link href="/artists" className={styles.back}>← All artists</Link>
     </main>
   );
