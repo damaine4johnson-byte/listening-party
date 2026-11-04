@@ -68,10 +68,9 @@
 }
 
 .panel {
-    position: absolute;
-    z-index: 1;
+    position: fixed;
+    z-index: 10000;
     right: 12px;
-    top: calc(100% + 4px);
     display: grid;
     min-width: 264px;
     padding: 8px;

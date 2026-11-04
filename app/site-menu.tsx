@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "./theme-provider";
 import NotificationBell from "./notification-bell";
@@ -26,10 +27,19 @@ export default function SiteMenu() {
   const [viewer, setViewer] = useState<Viewer>(EMPTY);
   const [ready, setReady] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const [panelPosition, setPanelPosition] = useState({ top: 0, right: 12 });
   const pathname = usePathname();
   const { theme, social, toggle: toggleTheme } = useTheme();
 
   useEffect(() => setOpen(false), [pathname]);
+
+  const positionPanel = useCallback(() => {
+    const rect = trigger.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPanelPosition({ top: rect.bottom + 4, right: Math.max(12, window.innerWidth - rect.right) });
+  }, []);
 
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
@@ -84,16 +94,24 @@ export default function SiteMenu() {
     if (!open) return;
     const close = (event: Event) => {
       if (event.type === "keydown" && (event as KeyboardEvent).key !== "Escape") return;
-      if (event.type === "pointerdown" && box.current?.contains(event.target as Node)) return;
+      if (event.type === "pointerdown" && (
+        box.current?.contains(event.target as Node) ||
+        panel.current?.contains(event.target as Node)
+      )) return;
       setOpen(false);
     };
+    const reposition = () => positionPanel();
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", close);
+    document.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
     return () => {
       document.removeEventListener("pointerdown", close);
       document.removeEventListener("keydown", close);
+      document.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
     };
-  }, [open]);
+  }, [open, positionPanel]);
 
   const signedIn = viewer.name !== "" || viewer.kind === "artist";
   const profileHref = "/profile";
@@ -129,14 +147,17 @@ export default function SiteMenu() {
       </div>
       <div className={styles.right}>
         <NotificationBell />
-        <button type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((v) => !v)}>
+        <button ref={trigger} type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="menu" onClick={() => {
+          if (!open) positionPanel();
+          setOpen((v) => !v);
+        }}>
           {viewer.avatarUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img className={styles.triggerAvatar} src={viewer.avatarUrl} alt="" />
             : <span className={styles.triggerAvatarFallback}>{signedIn ? initials : "☰"}</span>}
         </button>
-        {open && (
-          <nav className={styles.panel} aria-label="Account menu" role="menu">
+        {open && typeof document !== "undefined" && createPortal(
+          <nav ref={panel} className={styles.panel} style={panelPosition} aria-label="Account menu" role="menu">
             {signedIn ? (
               <Link className={styles.header} href={profileHref} role="menuitem">
                 {viewer.avatarUrl
@@ -177,7 +198,8 @@ export default function SiteMenu() {
                 </button>
               </>
             )}
-          </nav>
+          </nav>,
+          document.body,
         )}
       </div>
     </div>
