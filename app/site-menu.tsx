@@ -151,16 +151,16 @@ export default function SiteMenu() {
           if (!open) positionPanel();
           setOpen((v) => !v);
         }}>
-          {viewer.avatarUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img className={styles.triggerAvatar} src={viewer.avatarUrl} alt="" />
-            : <span className={styles.triggerAvatarFallback}>{signedIn ? initials : "☰"}</span>}
+          <span className={styles.triggerAvatarFallback} aria-hidden="true">☰</span>
         </button>
         {open && typeof document !== "undefined" && createPortal(
           <nav ref={panel} className={styles.panel} style={panelPosition} aria-label="Account menu" role="menu">
             {signedIn ? (
               <Link className={styles.header} href={profileHref} role="menuitem">
-                <span className={styles.headerAvatarFallback}>{initials}</span>
+                {viewer.avatarUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img className={styles.headerAvatar} src={viewer.avatarUrl} alt="" />
+                  : <span className={styles.headerAvatarFallback}>{initials}</span>}
                 <span className={styles.headerText}>
                   <strong>{viewer.name || "Your profile"}</strong>
                   {viewer.kind === "artist"
