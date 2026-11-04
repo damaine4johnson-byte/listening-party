@@ -160,10 +160,7 @@ export default function SiteMenu() {
           <nav ref={panel} className={styles.panel} style={panelPosition} aria-label="Account menu" role="menu">
             {signedIn ? (
               <Link className={styles.header} href={profileHref} role="menuitem">
-                {viewer.avatarUrl
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img className={styles.headerAvatar} src={viewer.avatarUrl} alt="" />
-                  : <span className={styles.headerAvatarFallback}>{initials}</span>}
+                <span className={styles.headerAvatarFallback}>{initials}</span>
                 <span className={styles.headerText}>
                   <strong>{viewer.name || "Your profile"}</strong>
                   {viewer.kind === "artist"

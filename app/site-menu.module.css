@@ -95,14 +95,12 @@
     background: rgb(255 255 255 / 10%);
 }
 
-.headerAvatar,
 .headerAvatarFallback {
     display: block;
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
     border-radius: 999px;
-    object-fit: cover;
     overflow: hidden;
 }
 
