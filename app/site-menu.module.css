@@ -1,6 +1,7 @@
 .bar {
     position: relative;
-    z-index: 100;
+    z-index: 1000;
+    isolation: isolate;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -68,13 +69,15 @@
 
 .panel {
     position: absolute;
+    z-index: 1;
     right: 12px;
     top: calc(100% + 4px);
     display: grid;
     min-width: 264px;
     padding: 8px;
     border-radius: 18px;
-    background: rgb(16 10 32 / 97%);
+    overflow: hidden;
+    background: #100a20;
     border: 1px solid rgb(255 255 255 / 16%);
     box-shadow: 0 18px 40px rgb(0 0 0 / 55%);
 }
@@ -95,10 +98,13 @@
 
 .headerAvatar,
 .headerAvatarFallback {
+    display: block;
+    flex: 0 0 44px;
     width: 44px;
     height: 44px;
     border-radius: 999px;
     object-fit: cover;
+    overflow: hidden;
 }
 
 .headerAvatarFallback {
