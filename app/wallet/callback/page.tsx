@@ -7,6 +7,7 @@ import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
 
 export default function ListenerWalletCallback() {
   const [message, setMessage] = useState("Verifying your Google account...");
+  const [artistUrl, setArtistUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -41,6 +42,25 @@ export default function ListenerWalletCallback() {
         if (active) setMessage("Your wallet could not be loaded. Please try again.");
         return;
       }
+      const requestedFollow = params.get("follow") ?? "";
+      const follow = /^[a-z][a-z0-9_]{2,23}$/i.test(requestedFollow) || /^[a-f0-9]{16}$/i.test(requestedFollow)
+        ? requestedFollow
+        : "";
+      if (follow) {
+        const followResponse = await fetch("/api/artists/follow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ artist: follow }),
+        });
+        if (!followResponse.ok) {
+          const result = await followResponse.json().catch(() => ({}));
+          if (active) {
+            setArtistUrl(`/artists/${encodeURIComponent(follow)}`);
+            setMessage(result.error || "Your account is ready, but following this artist did not complete.");
+          }
+          return;
+        }
+      }
       window.location.replace(destination);
     }
     void finishSignIn().catch(() => {
@@ -54,6 +74,7 @@ export default function ListenerWalletCallback() {
       <section className="panel" aria-live="polite">
         <h1>Listener wallet</h1>
         <p>{message}</p>
+        {artistUrl && <p><Link href={artistUrl}>Open the artist page and try Follow again</Link></p>}
         <Link href="/wallet">Return to wallet</Link>
       </section>
     </main>

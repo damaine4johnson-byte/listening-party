@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { ARTIST_TIERS, type ArtistTier } from "../../lib/artist-tiers";
 
@@ -12,6 +12,10 @@ export default function ArtistSignupForm() {
   const [audience, setAudience] = useState<"listener" | "artist" | null>(null);
 
   const cleanUsername = (value: string) => value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("follow")) setAudience("listener");
+  }, []);
 
   async function signUp() {
     setError("");
@@ -31,8 +35,12 @@ export default function ArtistSignupForm() {
       setPending(false);
       return;
     }
+    const requestedFollow = new URLSearchParams(window.location.search).get("follow") ?? "";
+    const follow = /^[a-z][a-z0-9_]{2,23}$/i.test(requestedFollow) || /^[a-f0-9]{16}$/i.test(requestedFollow)
+      ? requestedFollow
+      : "";
     const redirectTo = audience === "listener"
-      ? `${window.location.origin}/wallet/callback?next=/profile${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}`
+      ? `${window.location.origin}/wallet/callback?next=/profile${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}${follow ? `&follow=${encodeURIComponent(follow)}` : ""}`
       : `${window.location.origin}/signup/callback?tier=${planTier}${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}`;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",

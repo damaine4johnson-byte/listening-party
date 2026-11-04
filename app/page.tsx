@@ -57,7 +57,7 @@ export default async function Home() {
 
       <section className={styles.steps} aria-label="How it works">
         {[
-          ["01", "Get invited", "Receive a private code from the artist.", "✉"],
+          ["01", "Follow or get invited", "Follow an artist for free-room access, or receive a private code.", "✉"],
           ["02", "Join the room", "Pick a name and step inside in seconds.", "◉"],
           ["03", "Listen together", "Hear the music live, chat, and send tips.", "♫"],
         ].map(([n, title, body, icon], i) => (
@@ -81,7 +81,7 @@ export default async function Home() {
         <div className={styles.entryHeading}>
           <div className={styles.kickerDark}>LISTENER ACCESS <span>01 / 02</span></div>
           <h2 id="entry-title">Step inside.</h2>
-          <p>Your invitation is the key.</p>
+          <p>Follow your artist, or enter an invitation code.</p>
         </div>
         <div className={styles.entryForm}>
           <JoinForm />

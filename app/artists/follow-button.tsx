@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import styles from "./artists.module.css";
@@ -29,6 +28,10 @@ export default function FollowButton({ handle, initialFollowers }: { handle: str
   }, [handle]);
 
   async function toggle() {
+    if (signedIn === false) {
+      window.location.assign(`/signup?follow=${encodeURIComponent(handle)}`);
+      return;
+    }
     setError(""); setPending(true);
     const response = await fetch("/api/artists/follow", {
       method: following ? "DELETE" : "POST",
@@ -44,13 +47,9 @@ export default function FollowButton({ handle, initialFollowers }: { handle: str
 
   return (
     <div>
-      {signedIn === false ? (
-        <p className={styles.muted}><Link href="/signin">Sign in</Link> to follow and get notified when this artist opens a room.</p>
-      ) : (
-        <button className={`${styles.follow} ${following ? styles.on : ""}`} type="button" disabled={pending || signedIn === null} onClick={() => void toggle()}>
-          {following ? "Following ✓" : "Follow"}
-        </button>
-      )}
+      <button className={`${styles.follow} ${following ? styles.on : ""}`} type="button" disabled={pending || signedIn === null} onClick={() => void toggle()}>
+        {following ? "Following ✓" : "Follow"}
+      </button>
       {error && <p role="alert" className={styles.muted}>{error}</p>}
     </div>
   );

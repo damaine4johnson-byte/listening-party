@@ -49,24 +49,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter an invitation code and display name." }, { status: 400 });
   }
 
-  const values = input as { code?: unknown; displayName?: unknown; paymentSessionId?: unknown };
+  const values = input as { code?: unknown; roomId?: unknown; displayName?: unknown; paymentSessionId?: unknown };
   const code = typeof values.code === "string" ? values.code.trim() : "";
+  const roomId = typeof values.roomId === "string" ? values.roomId.trim() : "";
   const displayName = typeof values.displayName === "string" ? values.displayName.trim().slice(0, 32) : "";
   const paymentSessionId = typeof values.paymentSessionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(values.paymentSessionId)
     ? values.paymentSessionId
     : "";
-  if (!code || code.length > 128 || !displayName) {
-    return NextResponse.json({ error: "Enter an invitation code and display name." }, { status: 400 });
+  if ((!code && !roomId) || (code && roomId) || code.length > 128 || !displayName || (roomId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roomId))) {
+    return NextResponse.json({ error: "Enter a valid room invitation and display name." }, { status: 400 });
   }
 
   try {
     const supabase = createSupabaseAdmin();
-    const inviteCodeHash = createHash("sha256").update(normalizeInviteCode(code)).digest("hex");
-    const { data: room, error } = await supabase
+    const roomQuery = supabase
       .from("rooms")
-      .select("id, title, status, host_id, entry_fee_cents")
-      .eq("invite_code_hash", inviteCodeHash)
-      .maybeSingle();
+      .select("id, title, status, host_id, entry_fee_cents");
+    const { data: room, error } = roomId
+      ? await roomQuery.eq("id", roomId).maybeSingle()
+      : await roomQuery
+        .eq("invite_code_hash", createHash("sha256").update(normalizeInviteCode(code)).digest("hex"))
+        .maybeSingle();
 
     if (error) {
       console.error("Room join room lookup failed", {
@@ -76,7 +79,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Room service is temporarily unavailable." }, { status: 503 });
     }
     if (!room || room.status === "ended") {
-      return NextResponse.json({ error: "That invitation code is invalid or the room has ended." }, { status: 401 });
+      return NextResponse.json({ error: roomId ? "That room is no longer available." : "That invitation code is invalid or the room has ended." }, { status: 401 });
+    }
+
+    if (roomId) {
+      const listener = await getListenerUser(request);
+      if (!listener) {
+        return NextResponse.json({ error: "Sign in to the listener account that follows this artist." }, { status: 401 });
+      }
+      if (room.entry_fee_cents > 0) {
+        return NextResponse.json({ error: "Only free rooms can be joined without an invitation code." }, { status: 403 });
+      }
+      const { data: follow, error: followError } = await supabase
+        .from("artist_follows")
+        .select("host_id")
+        .eq("listener_user_id", listener.id)
+        .eq("host_id", room.host_id)
+        .maybeSingle();
+      if (followError) {
+        console.error("Room join follower verification failed", getSafeErrorDetails(followError));
+        return NextResponse.json({ error: "Could not verify your artist follow." }, { status: 503 });
+      }
+      if (!follow) {
+        return NextResponse.json({ error: "Follow this artist to join their free room without a code." }, { status: 403 });
+      }
     }
 
     let claimedSessionId = "";

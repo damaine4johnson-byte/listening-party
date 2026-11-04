@@ -7,7 +7,9 @@ import { supabase } from "../lib/supabase";
 export default function JoinForm() {
   const [code, setCode] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [error, setError] = useState("");
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [pending, setPending] = useState(false);
   const [fee, setFee] = useState<{ cents: number; title: string } | null>(null);
   const [paymentSessionId, setPaymentSessionId] = useState("");
@@ -20,6 +22,11 @@ export default function JoinForm() {
     const params = new URLSearchParams(window.location.search);
     const inviteCode = params.get("invite");
     if (inviteCode) setCode(inviteCode.slice(0, 128));
+    const requestedRoomId = params.get("roomId") ?? "";
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedRoomId)) {
+      setRoomId(requestedRoomId);
+      setAuto(true);
+    }
     // Notification links (?invite=CODE&go=1) enter straight away; paid rooms still ask for payment.
     if (inviteCode && params.get("go") === "1" && !params.get("paid")) setAuto(true);
 
@@ -53,7 +60,7 @@ export default function JoinForm() {
   }, []);
 
   useEffect(() => {
-    if (!auto || !code) return;
+    if (!auto || (!code && !roomId)) return;
     void (async () => {
       let name = displayName;
       if (!name && supabase) {
@@ -70,7 +77,7 @@ export default function JoinForm() {
       setDisplayName(name.slice(0, 32));
       setTimeout(() => formRef.current?.requestSubmit(), 60);
     })();
-  }, [auto, code, displayName]);
+  }, [auto, code, displayName, roomId]);
 
   useEffect(() => {
     let active = true;
@@ -160,15 +167,25 @@ export default function JoinForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNeedsSignIn(false);
     setPending(true);
 
     try {
-      if (fee && !paymentSessionId) {
+      if (fee && !paymentSessionId && !roomId) {
         await startCheckout();
         return;
       }
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (roomId) {
+        const { data, error: sessionError } = await supabase?.auth.getSession() ?? { data: { session: null }, error: null };
+        if (sessionError || !data.session?.access_token) {
+          setNeedsSignIn(true);
+          setError("Sign in to the listener account that follows this artist.");
+          return;
+        }
+        headers.Authorization = `Bearer ${data.session.access_token}`;
+      }
       if (paymentSessionId && supabase) {
         const { data } = await supabase.auth.getSession();
         if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
@@ -176,7 +193,9 @@ export default function JoinForm() {
       const response = await fetch("/api/rooms/join", {
         method: "POST",
         headers,
-        body: JSON.stringify({ code, displayName, paymentSessionId: paymentSessionId || undefined }),
+        body: JSON.stringify(roomId
+          ? { roomId, displayName }
+          : { code, displayName, paymentSessionId: paymentSessionId || undefined }),
       });
       const result = await response.json();
 
@@ -187,6 +206,7 @@ export default function JoinForm() {
         return;
       }
       if (!response.ok) {
+        if (roomId && response.status === 401) setNeedsSignIn(true);
         setError(result.error || "Could not join this room.");
         return;
       }
@@ -203,24 +223,28 @@ export default function JoinForm() {
 
   return (
     <form ref={formRef} onSubmit={submit}>
-      <div className="field">
-        <label htmlFor="code">Invitation code</label>
-        <input
-          id="code"
-          value={code}
-          onChange={(event) => {
-            setCode(event.target.value);
-            setFee(null);
-            setPaymentSessionId("");
-            setCoinBalance(null);
-            sessionStorage.removeItem("fi-pending-coin-entry");
-          }}
-          placeholder="Enter your invite code"
-          autoComplete="off"
-          maxLength={128}
-          required
-        />
-      </div>
+      {roomId ? (
+        <p className="small" role="status">Join this artist&apos;s free room as a follower — no invitation code needed.</p>
+      ) : (
+        <div className="field">
+          <label htmlFor="code">Invitation code</label>
+          <input
+            id="code"
+            value={code}
+            onChange={(event) => {
+              setCode(event.target.value);
+              setFee(null);
+              setPaymentSessionId("");
+              setCoinBalance(null);
+              sessionStorage.removeItem("fi-pending-coin-entry");
+            }}
+            placeholder="Enter your invite code"
+            autoComplete="off"
+            maxLength={128}
+            required
+          />
+        </div>
+      )}
       <div className="field">
         <label htmlFor="name">Display name</label>
         <input
@@ -266,11 +290,12 @@ export default function JoinForm() {
       )}
       <button className="btn" type="submit" disabled={pending}>
         {pending
-          ? "Checking invitation..."
+          ? roomId ? "Joining room..." : "Checking invitation..."
           : fee && !paymentSessionId
             ? `Pay $${(fee.cents / 100).toFixed(2)} and enter →`
             : "Enter room →"}
       </button>
+      {needsSignIn && <p className="small"><Link href="/signin">Sign in</Link> with the listener account that follows this artist, then return to this room.</p>}
       {error && <p role="alert" className="small">{error}</p>}
     </form>
   );

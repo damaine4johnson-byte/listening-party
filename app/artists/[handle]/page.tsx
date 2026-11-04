@@ -39,7 +39,9 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   const rooms = roomsResult.data ?? [];
   // Before the follows/feed migration runs, the host_id column does not exist.
   const posts = (postsResult.error ? [] : postsResult.data) as Post[];
-  const isLive = rooms.some((room) => room.status === "live");
+  const liveRoom = rooms.find((room) => room.status === "live");
+  const isLive = Boolean(liveRoom);
+  const freeLiveRoom = liveRoom && Number(liveRoom.entry_fee_cents) === 0 ? liveRoom : null;
   const isVerified = (await verifiedHostIds().catch(() => new Set<string>())).has(artist.hostId);
   const initial = artist.name.charAt(0).toUpperCase();
   const username = /^[0-9a-f]{16}$/.test(artist.handle) ? artist.name : artist.handle;
@@ -47,13 +49,28 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   return (
     <main className={styles.page}>
       <header className={styles.head}>
-        <div className={styles.ring}>
-          {artist.avatarUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img className={styles.avatar} src={artist.avatarUrl} alt="" />
-            : <div className={styles.avatar}>{initial}</div>}
-          {isLive && <span className={styles.live}>LIVE</span>}
-        </div>
+        {isLive ? (
+          <Link
+            className={styles.liveLink}
+            href={`${freeLiveRoom ? `/?roomId=${encodeURIComponent(String(freeLiveRoom.id))}` : "/"}#enter-room`}
+            aria-label={`Join ${artist.name}'s live room`}
+          >
+            <div className={styles.ring}>
+              {artist.avatarUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img className={styles.avatar} src={artist.avatarUrl} alt="" />
+                : <div className={styles.avatar}>{initial}</div>}
+              <span className={styles.live}>LIVE</span>
+            </div>
+          </Link>
+        ) : (
+          <div className={styles.ring}>
+            {artist.avatarUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img className={styles.avatar} src={artist.avatarUrl} alt="" />
+              : <div className={styles.avatar}>{initial}</div>}
+          </div>
+        )}
         <div className={styles.headMain}>
           <div className={styles.handleRow}>
             <h1 className={styles.username}>{username}{isVerified && <VerifiedBadge />}</h1>
@@ -74,7 +91,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         {artist.linkInBio && <a className={styles.linkInBio} href={artist.linkInBio} target="_blank" rel="noopener noreferrer">🔗 {artist.linkInBio.replace(/^https:\/\//, "")}</a>}
       </div>
 
-      <section className={styles.section} style={{ marginTop: 18 }}>
+      <section id="rooms" className={styles.section} style={{ marginTop: 18 }}>
         <h2>Rooms</h2>
         {rooms.length === 0 && <p className={styles.empty}>No open rooms right now. Follow to be notified when one opens.</p>}
         <div className={styles.rooms}>
@@ -84,11 +101,12 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
               <div key={room.id as string} className={styles.room}>
                 <div><b>{room.title as string}</b><small>{room.status === "live" ? "🔴 Live now" : "Scheduled"}</small></div>
                 <span className={`${styles.pill} ${paid ? styles.paid : ""}`}>{paid ? `$${((room.entry_fee_cents as number) / 100).toFixed(2)} entry` : "Free"}</span>
+                {!paid && <Link className={styles.joinRoom} href={`/?roomId=${encodeURIComponent(String(room.id))}#enter-room`}>Join free room</Link>}
               </div>
             );
           })}
         </div>
-        {rooms.length > 0 && <p className={styles.empty} style={{ marginTop: 10 }}>Followers get the room code in their notifications 🔔</p>}
+        {rooms.length > 0 && <p className={styles.empty} style={{ marginTop: 10 }}>Followers can join free rooms here. Room codes for other invitations arrive in notifications 🔔</p>}
       </section>
 
       {isOwner && <GalleryEditor />}

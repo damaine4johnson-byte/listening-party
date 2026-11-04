@@ -437,6 +437,44 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                       {synced ? "● In sync" : "↻ Resync to live"}
                     </button>
                   )}
+                  {isHost ? (
+                    <div className="rm-transport" aria-label="Room playback controls">
+                      <button className="rm-track-nav" type="button" disabled={!activeTrack} aria-label="Previous track" title="Previous track" onClick={() => void previousTrack()}>
+                        ⏮
+                      </button>
+                      <button className="rm-track-nav" type="button" disabled={!activeTrack} aria-label="Back 15 seconds" title="Back 15 seconds" onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) - 15)}>
+                        ⏪ 15
+                      </button>
+                      {activeTrack && (
+                        <button
+                          className="rm-play"
+                          type="button"
+                          aria-label={isPlaying ? "Pause for the room" : "Play for the room"}
+                          onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}
+                        >
+                          {isPlaying ? "❚❚" : "▶"}
+                        </button>
+                      )}
+                      <button className="rm-track-nav" type="button" disabled={!activeTrack} aria-label="Forward 15 seconds" title="Forward 15 seconds" onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) + 15)}>
+                        15 ⏩
+                      </button>
+                      <button className="rm-track-nav" type="button" disabled={tracks.length < 2} aria-label="Next track" title="Next track" onClick={() => void advanceTrack()}>
+                        ⏭
+                      </button>
+                    </div>
+                  ) : activeTrack && (
+                    <button
+                      className="rm-play"
+                      type="button"
+                      aria-label={audioPaused ? "Play audio on this device" : "Pause audio on this device"}
+                      onClick={() => {
+                        if (audioPaused) void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."));
+                        else audioRef.current?.pause();
+                      }}
+                    >
+                      {!audioPaused ? "❚❚" : "▶"}
+                    </button>
+                  )}
                   <div className="rm-vol-hover">
                     <button
                       className="rm-vol-icon"
@@ -458,20 +496,6 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                       onChange={(event) => { setVolume(Number(event.target.value) / 100); setMuted(false); }}
                     />
                   </div>
-                  {activeTrack && (
-                    <button
-                      className="rm-play"
-                      type="button"
-                      aria-label={isHost ? (isPlaying ? "Pause for the room" : "Play for the room") : (audioPaused ? "Play audio on this device" : "Pause audio on this device")}
-                      onClick={() => {
-                        if (isHost) void setPlayback(isPlaying ? "paused" : "playing");
-                        else if (audioPaused) void audioRef.current?.play().catch(() => setNotice("Tap Play to start audio in this browser."));
-                        else audioRef.current?.pause();
-                      }}
-                    >
-                      {(isHost ? isPlaying : !audioPaused) ? "❚❚" : "▶"}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -578,23 +602,6 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 <p className="small">Camera and screen sharing are off until live video (LiveKit) is set up on the server.</p>
               )}
               {video.error && <p className="small" role="alert">{video.error}</p>}
-              <div className="rm-transport">
-                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void previousTrack()}>
-                  ⏮ Previous
-                </button>
-                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) - 15)}>
-                  ⏪ 15s
-                </button>
-                <button className="btn" type="button" disabled={!activeTrack} onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}>
-                  {isPlaying ? "❚❚ Pause room" : "▶ Play for room"}
-                </button>
-                <button className="btn secondary" type="button" disabled={!activeTrack} onClick={() => void seekTo((audioRef.current?.currentTime ?? 0) + 15)}>
-                  15s ⏩
-                </button>
-                <button className="btn secondary" type="button" disabled={tracks.length < 2} onClick={() => void advanceTrack()}>
-                  Next ⏭
-                </button>
-              </div>
               <p className="small">Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
               <button className="btn rm-end" type="button" disabled={ending} onClick={() => void endStream()}>
                 {ending ? "Ending..." : "■ End live stream"}

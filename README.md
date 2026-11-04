@@ -5,7 +5,7 @@ Famous Introvert Listening Rooms — MVP starter
 A private, invitation-only listening-party web app starter for Famous Introvert Records.
 
 ## MVP scope
-- Invite-code gated rooms
+- Invite-code access, plus code-free entry to free rooms for artist followers
 - Optional Supabase accounts; guests use a display name
 - Host-authorized shared playback controls
 - Live chat and listener reactions
@@ -24,7 +24,7 @@ A private, invitation-only listening-party web app starter for Famous Introvert 
 ## 1. Create services
 1. Create a Supabase project.
 2. In Supabase SQL Editor, run `supabase/schema.sql`.
-3. If upgrading an existing project, run `supabase/host_profiles.sql`, then `supabase/artist_tiers.sql`, `supabase/artist_tier_expansion.sql`, `supabase/paid_rooms.sql`, `supabase/listening_party.sql`, and `supabase/developer_admin.sql`.
+3. If upgrading an existing project, run `supabase/host_profiles.sql`, then `supabase/artist_tiers.sql`, `supabase/artist_tier_expansion.sql`, `supabase/paid_rooms.sql`, `supabase/listening_party.sql`, `supabase/developer_admin.sql`, and `supabase/follows_notifications_feed.sql`.
 4. Create a **private** Storage bucket named `tracks` and set its file-size limit to at least 200 MB (WAV files are large). Supabase also enforces a project-wide upload limit under Storage settings, which must be raised to match.
 5. Create a Next.js project or use these files as the starting source.
 6. Copy `.env.example` to `.env.local` and fill in values from Supabase project settings.
@@ -69,6 +69,8 @@ The server generates a 6-character alphanumeric invite code (two groups of three
 From `/host`, create a room, upload audio to its playlist, and share the one-time invite code. Uploads go directly to the private `tracks` bucket through a short-lived signed upload URL; the app stores the private object path and gives listeners short-lived signed playback URLs only after room join. The host must also join the room with its invite code to use the synchronized playback controls. When LiveKit is configured, the host also gets **Share camera** and **Share screen** buttons in the room; listeners watch the live video in the stage (the host's microphone and shared-screen audio are streamed too), and only the room's host can publish.
 
 The first successful join creates the room's paused `room_state` row and a listener membership. Active listener heartbeats expire after ten minutes, and room joins are serialized against the room capacity. Room state, chat, and reactions refresh every four seconds; direct anonymous table access remains disabled.
+
+Listeners who follow an artist can join that artist's free rooms from the public profile without entering a room code. Paid rooms and other invitations continue to use their invite code.
 
 ## 4. Artist tiers
 - Tier 1: free, up to 100 active listeners, ad-supported.
