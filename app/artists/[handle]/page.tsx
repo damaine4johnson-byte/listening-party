@@ -76,7 +76,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
             <h1 className={styles.username}>{username}{isVerified && <VerifiedBadge />}</h1>
             {isOwner
               ? <Link className={styles.editBtn} href="/host/profile">Edit profile</Link>
-              : <FollowButton handle={artist.handle} initialFollowers={artist.followers} />}
+              : <FollowButton handle={artist.handle} />}
           </div>
           <div className={styles.stats}>
             <div className={styles.stat}><strong>{posts.length}</strong> posts</div>
