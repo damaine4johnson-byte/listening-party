@@ -45,14 +45,32 @@ export default async function Home() {
         <div className={styles.heroContent}>
           <div className={styles.kicker}><span /> EXCLUSIVE LISTENS</div>
           <h1 id="home-title"><span>Listen</span><br /><span className={styles.glow}>Party</span></h1>
-          <p>Your exclusive listen, shared in real time.</p>
-          <div className={styles.heroRule} />
-          <div className={styles.heroFoot}>
-            <span>RECORDS / LISTENING ROOMS</span>
-            <a href="#enter-room">Enter a room <span aria-hidden="true">↓</span></a>
+          <p>Join a listening room or find an artist to follow.</p>
+          <div className={styles.heroActions}>
+            <a className={styles.primaryAction} href="#enter-room">Join with a code</a>
+            <Link className={styles.secondaryAction} href="/artists">Find an artist</Link>
           </div>
         </div>
         <div className={styles.heroIndex} aria-hidden="true">FI—001</div>
+      </section>
+
+      {liveArtists.length > 0 && (
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }} aria-label="Live now">
+          <h2 style={{ margin: "0 0 10px" }}>🔴 Live now</h2>
+          <LiveNowStrip artists={liveArtists} />
+        </section>
+      )}
+
+      <section className={styles.entry} id="enter-room" aria-labelledby="entry-title">
+        <div className={styles.entryHeading}>
+          <div className={styles.kickerDark}>LISTENER ACCESS</div>
+          <h2 id="entry-title">Join a room</h2>
+          <p>Enter your invitation code, or join an artist&apos;s free room from their profile.</p>
+          <p className={styles.entryHelp}>No code? <Link href="/artists">Find and follow an artist</Link> to join their free rooms.</p>
+        </div>
+        <div className={styles.entryForm}>
+          <JoinForm />
+        </div>
       </section>
 
       <section className={styles.steps} aria-label="How it works">
@@ -68,24 +86,6 @@ export default async function Home() {
             <p>{body}</p>
           </article>
         ))}
-      </section>
-
-      {liveArtists.length > 0 && (
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }} aria-label="Live now">
-          <h2 style={{ margin: "0 0 10px" }}>🔴 Live now</h2>
-          <LiveNowStrip artists={liveArtists} />
-        </section>
-      )}
-
-      <section className={styles.entry} id="enter-room" aria-labelledby="entry-title">
-        <div className={styles.entryHeading}>
-          <div className={styles.kickerDark}>LISTENER ACCESS <span>01 / 02</span></div>
-          <h2 id="entry-title">Step inside.</h2>
-          <p>Follow your artist, or enter an invitation code.</p>
-        </div>
-        <div className={styles.entryForm}>
-          <JoinForm />
-        </div>
       </section>
 
       <footer className={styles.footer}>

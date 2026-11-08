@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getOAuthAccessToken } from "../../../lib/oauth-callback";
 import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
+import { listenerRoomDestination } from "../../../lib/listener-room-return";
 
 export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Finding your account...");
@@ -21,11 +22,13 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const params = new URLSearchParams(window.location.search);
+      const requestedNext = params.get("next");
+      const roomId = params.get("roomId");
       const response = await fetch("/api/auth/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, next: requestedNext }),
+        body: JSON.stringify({ accessToken, next: requestedNext, roomId }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -33,7 +36,10 @@ export default function AuthCallbackPage() {
         return;
       }
       if (result.accountType === "host") await supabase.auth.signOut();
-      window.location.replace(result.destination === "/wallet" || result.destination === "/host"
+      const roomDestination = listenerRoomDestination(roomId);
+      window.location.replace(result.accountType === "listener" && roomDestination && result.destination === roomDestination
+        ? roomDestination
+        : result.destination === "/wallet" || result.destination === "/host"
         ? result.destination
         : result.accountType === "host" ? "/profile" : "/profile");
     }

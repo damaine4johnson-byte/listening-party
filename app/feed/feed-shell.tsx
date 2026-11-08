@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import styles from "../social.module.css";
 
@@ -8,8 +9,13 @@ type Tab = "all" | "following" | "saved";
 type Engagement = { likes: Record<string, number>; comments: Record<string, number>; liked: Set<string>; saved: Set<string>; reactions: Record<string, Record<string, number>>; mine: Record<string, string>; signedIn: boolean };
 type Ctx = {
   tab: Tab;
+  setTab: (tab: Tab) => void;
   following: Set<string>;
   engagement: Engagement;
+  visiblePostCount: number;
+  loaded: boolean;
+  loadError: string;
+  reload: () => void;
   toggle: (postId: string, kind: "like" | "save") => Promise<string | null>;
   react: (postId: string, emoji: string) => Promise<string | null>;
 };
@@ -24,20 +30,32 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 // Holds the tab, the listener's follows and every post's like/save state so that
 // one request serves the whole feed instead of one per card.
-export function FeedShell({ postIds, tabs = true, children }: { postIds: string[]; tabs?: boolean; children: React.ReactNode }) {
+export function FeedShell({ postIds, postHosts = {}, tabs = true, children }: { postIds: string[]; postHosts?: Record<string, string | null>; tabs?: boolean; children: React.ReactNode }) {
   const [tab, setTab] = useState<Tab>("all");
   const [following, setFollowing] = useState<Set<string>>(new Set());
   const [engagement, setEngagement] = useState<Engagement>(EMPTY);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const idsKey = postIds.join(",");
 
   const load = useCallback(async () => {
-    const headers = await authHeaders();
-    const [eng, mine] = await Promise.all([
-      fetch(`/api/feed/engagement?posts=${idsKey}`, { headers, cache: "no-store" }).then((r) => r.json()).catch(() => null),
-      fetch("/api/feed/mine", { headers, cache: "no-store" }).then((r) => r.json()).catch(() => null),
-    ]);
-    if (eng) setEngagement({ likes: eng.likes ?? {}, comments: eng.comments ?? {}, liked: new Set(eng.liked ?? []), saved: new Set(eng.saved ?? []), reactions: eng.reactions ?? {}, mine: eng.mine ?? {}, signedIn: Boolean(eng.signedIn) });
-    if (mine) setFollowing(new Set(mine.following ?? []));
+    setLoaded(false);
+    setLoadError("");
+    try {
+      const headers = await authHeaders();
+      const [engResponse, mineResponse] = await Promise.all([
+        fetch(`/api/feed/engagement?posts=${idsKey}`, { headers, cache: "no-store" }),
+        fetch("/api/feed/mine", { headers, cache: "no-store" }),
+      ]);
+      if (!engResponse.ok || !mineResponse.ok) throw new Error("Feed preferences unavailable.");
+      const [eng, mine] = await Promise.all([engResponse.json(), mineResponse.json()]);
+      setEngagement({ likes: eng.likes ?? {}, comments: eng.comments ?? {}, liked: new Set(eng.liked ?? []), saved: new Set(eng.saved ?? []), reactions: eng.reactions ?? {}, mine: eng.mine ?? {}, signedIn: Boolean(eng.signedIn) });
+      setFollowing(new Set(mine.following ?? []));
+    } catch {
+      setLoadError("Couldn’t load your feed preferences.");
+    } finally {
+      setLoaded(true);
+    }
   }, [idsKey]);
 
   useEffect(() => { void load(); }, [load]);
@@ -88,7 +106,12 @@ export function FeedShell({ postIds, tabs = true, children }: { postIds: string[
     return null;
   }, [engagement]);
 
-  const value = useMemo(() => ({ tab, following, engagement, toggle, react }), [tab, following, engagement, toggle, react]);
+  const visiblePostCount = tab === "all" ? postIds.length : postIds.filter((postId) => (
+    tab === "saved"
+      ? engagement.saved.has(postId)
+      : Boolean(postHosts[postId] && following.has(postHosts[postId] as string))
+  )).length;
+  const value = useMemo(() => ({ tab, setTab, following, engagement, visiblePostCount, loaded, loadError, reload: load, toggle, react }), [tab, following, engagement, visiblePostCount, loaded, loadError, load, toggle, react]);
 
   return (
     <FeedContext.Provider value={value}>
@@ -115,11 +138,51 @@ function useFeed() {
 
 // Shows a friendly message when a filtered tab has nothing in it.
 function TabEmpty() {
-  const { tab, engagement, following } = useFeed();
-  if (tab === "all") return null;
-  if (!engagement.signedIn) return <p className={styles.empty}>Sign in with Google to see your {tab === "saved" ? "saved posts" : "followed artists"}.</p>;
-  if (tab === "saved" && engagement.saved.size === 0) return <p className={styles.empty}>Tap 🔖 on a post to save it for later.</p>;
-  if (tab === "following" && following.size === 0) return <p className={styles.empty}>You are not following any artists yet. Find some in Discover.</p>;
+  const { tab, setTab, engagement, following, visiblePostCount, loaded, loadError, reload } = useFeed();
+  if (!loaded || tab === "all") return null;
+  if (loadError) return (
+    <div className={styles.empty} role="status">
+      <p>{loadError} Your saved and followed posts may be out of date.</p>
+      <button className="btn secondary" type="button" onClick={reload}>Try again</button>
+    </div>
+  );
+  if (visiblePostCount > 0) return null;
+  if (!engagement.signedIn) {
+    return (
+      <div className={styles.empty}>
+        <p>Sign in to see posts from artists you follow and posts you have saved.</p>
+        <div className={styles.emptyActions}>
+          <Link className="btn" href="/signin">Sign in</Link>
+          <Link className="btn secondary" href="/artists">Find artists</Link>
+        </div>
+      </div>
+    );
+  }
+  if (tab === "saved") {
+    return (
+      <div className={styles.empty}>
+        <p>{engagement.saved.size === 0 ? "You haven’t saved any posts yet." : "Your saved posts aren’t in the current feed."} Save posts from For you to find them here later.</p>
+        <button className="btn secondary" type="button" onClick={() => setTab("all")}>Browse For you</button>
+      </div>
+    );
+  }
+  if (following.size === 0) {
+    return (
+      <div className={styles.empty}>
+        <p>You’re not following any artists yet. Follow an artist to see their posts and hear when they open a room.</p>
+        <div className={styles.emptyActions}>
+          <Link className="btn" href="/artists">Find artists</Link>
+          <Link className="btn secondary" href="/discover">Explore Discover</Link>
+        </div>
+      </div>
+    );
+  }
+  if (tab === "following") return (
+    <div className={styles.empty}>
+      <p>No recent posts from artists you follow.</p>
+      <button className="btn secondary" type="button" onClick={() => setTab("all")}>Browse For you</button>
+    </div>
+  );
   return null;
 }
 

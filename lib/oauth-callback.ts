@@ -27,17 +27,22 @@ export async function getOAuthAccessToken(
     return { accessToken: null, error: "Google sign-in was declined or could not be completed. Return and try again." };
   }
 
-  if (!code && !accessToken) {
-    return { accessToken: null, error: "No Google sign-in response was received. Return and try again." };
-  }
-
+  // An existing session (e.g. a user already signed in who is routed here) needs no OAuth response.
   try {
     const { data } = await client.auth.getSession();
     if (data.session?.access_token) {
       clearOAuthResponse();
       return { accessToken: data.session.access_token, error: null };
     }
+  } catch {
+    // Fall through to the OAuth response handling below.
+  }
 
+  if (!code && !accessToken) {
+    return { accessToken: null, error: "No Google sign-in response was received. Return and try again." };
+  }
+
+  try {
     if (accessToken) {
       if (refreshToken) {
         const { data: restored } = await client.auth.setSession({

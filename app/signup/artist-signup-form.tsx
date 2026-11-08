@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { ARTIST_TIERS, type ArtistTier } from "../../lib/artist-tiers";
+import { listenerRoomDestination } from "../../lib/listener-room-return";
 
 export default function ArtistSignupForm() {
   const [planTier, setPlanTier] = useState<ArtistTier>("free");
@@ -39,8 +40,10 @@ export default function ArtistSignupForm() {
     const follow = /^[a-z][a-z0-9_]{2,23}$/i.test(requestedFollow) || /^[a-f0-9]{16}$/i.test(requestedFollow)
       ? requestedFollow
       : "";
+    const requestedRoomId = new URLSearchParams(window.location.search).get("roomId");
+    const roomParam = follow && requestedRoomId && listenerRoomDestination(requestedRoomId) ? `&roomId=${encodeURIComponent(requestedRoomId)}` : "";
     const redirectTo = audience === "listener"
-      ? `${window.location.origin}/wallet/callback?next=/profile${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}${follow ? `&follow=${encodeURIComponent(follow)}` : ""}`
+      ? `${window.location.origin}/wallet/callback?next=/profile${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}${follow ? `&follow=${encodeURIComponent(follow)}` : ""}${roomParam}`
       : `${window.location.origin}/signup/callback?tier=${planTier}${username ? `&username=${encodeURIComponent(cleanUsername(username))}` : ""}`;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import type { PublicArtist } from "../../lib/artists-public";
 import styles from "./artists.module.css";
@@ -8,23 +8,41 @@ import styles from "./artists.module.css";
 // Listener-facing artist search by username or display name.
 export default function ArtistSearch() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<PublicArtist[] | null>(null);
+  const [results, setResults] = useState<Pick<PublicArtist, "handle" | "name" | "avatarUrl" | "followers">[] | null>(null);
+  const [searchedQuery, setSearchedQuery] = useState("");
+  const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const requestId = useRef(0);
 
   async function search(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const q = query.trim();
-    if (!q) { setResults(null); return; }
+    if (!q || pending) return;
+    const id = ++requestId.current;
+    setResults(null);
+    setError("");
+    setSearchedQuery(q);
     setPending(true);
     try {
       const response = await fetch(`/api/artists/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Artist search is temporarily unavailable. Please try again.");
       const data = await response.json();
-      setResults(Array.isArray(data.artists) ? data.artists : []);
+      if (!Array.isArray(data.artists)) throw new Error("Artist search is temporarily unavailable. Please try again.");
+      if (requestId.current === id) setResults(data.artists);
     } catch {
-      setResults([]);
+      if (requestId.current === id) setError("Artist search is temporarily unavailable. Please try again.");
     } finally {
-      setPending(false);
+      if (requestId.current === id) setPending(false);
     }
+  }
+
+  function clearSearch() {
+    requestId.current++;
+    setResults(null);
+    setError("");
+    setSearchedQuery("");
+    setQuery("");
+    setPending(false);
   }
 
   return (
@@ -40,16 +58,20 @@ export default function ArtistSearch() {
         <button className="btn secondary" type="submit" disabled={pending}>
           {pending ? "Searching..." : "Search"}
         </button>
-        {results !== null && (
-          <button className="btn secondary" type="button" onClick={() => { setResults(null); setQuery(""); }}>
+        {(query || results !== null || error) && (
+          <button className="btn secondary" type="button" onClick={clearSearch}>
             Clear
           </button>
         )}
       </form>
-      {results !== null && (
-        results.length === 0
-          ? <p className="muted" style={{ marginTop: 12 }}>No artists matched “{query}”.</p>
-          : (
+      <div aria-live="polite">
+        {error && <p role="alert" className={styles.searchMessage}>{error}</p>}
+        {results !== null && (
+          results.length === 0
+            ? <p className={styles.searchMessage}>No artists matched “{searchedQuery}”. Try another name or username.</p>
+            : (
+              <>
+              <p className={styles.searchMessage}>Results for “{searchedQuery}”</p>
             <div className={styles.grid}>
               {results.map((a) => (
                 <Link key={a.handle} href={`/artists/${a.handle}`} className={styles.card}>
@@ -62,8 +84,10 @@ export default function ArtistSearch() {
                 </Link>
               ))}
             </div>
+              </>
           )
-      )}
+        )}
+      </div>
     </div>
   );
 }

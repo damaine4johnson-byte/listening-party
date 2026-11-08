@@ -1,17 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Room, Track } from "livekit-client";
+import { Track } from "livekit-client";
+import type { Room } from "livekit-client";
 
 type VideoStatus = "off" | "connecting" | "live" | "error";
 
 // Connects to the room's live video session. The host can publish camera/screen;
 // listeners only subscribe. Does nothing when LiveKit is not configured.
-export function useRoomVideo(muted: boolean) {
+export function useRoomVideo(muted: boolean, micVolume: number) {
   const roomRef = useRef<Room | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioBoxRef = useRef<HTMLDivElement>(null);
   const currentRef = useRef<Track | null>(null);
+  const mutedRef = useRef(muted);
+  const micVolumeRef = useRef(micVolume);
   const [status, setStatus] = useState<VideoStatus>("off");
   const [canPublish, setCanPublish] = useState(false);
   const [serverReady, setServerReady] = useState<boolean | null>(null);
@@ -20,9 +23,20 @@ export function useRoomVideo(muted: boolean) {
   const [screenOn, setScreenOn] = useState(false);
   const [error, setError] = useState("");
 
+  mutedRef.current = muted;
+  micVolumeRef.current = micVolume;
+
   useEffect(() => {
     audioBoxRef.current?.querySelectorAll("audio").forEach((element) => { element.muted = muted; });
   }, [muted]);
+
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    room.remoteParticipants.forEach((participant) => {
+      participant.setVolume(muted ? 0 : micVolume, Track.Source.Microphone);
+    });
+  }, [micVolume, muted]);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +51,7 @@ export function useRoomVideo(muted: boolean) {
         if (!result.configured || cancelled) return;
 
         setStatus("connecting");
-        const { Room, RoomEvent, Track } = await import("livekit-client");
+        const { Room, RoomEvent } = await import("livekit-client");
         if (cancelled) return;
         room = new Room({ adaptiveStream: true, dynacast: true });
         roomRef.current = room;
@@ -62,7 +76,10 @@ export function useRoomVideo(muted: boolean) {
         };
 
         room
-          .on(RoomEvent.TrackSubscribed, (track) => {
+          .on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+            if (publication.source === Track.Source.Microphone) {
+              participant.setVolume(mutedRef.current ? 0 : micVolumeRef.current, Track.Source.Microphone);
+            }
             if (track.kind === Track.Kind.Audio && audioBoxRef.current) {
               const element = track.attach() as HTMLAudioElement;
               element.muted = muted;
@@ -82,6 +99,9 @@ export function useRoomVideo(muted: boolean) {
 
         await room.connect(result.url, result.token);
         if (cancelled) { void room.disconnect(); return; }
+        room.remoteParticipants.forEach((participant) => {
+          participant.setVolume(mutedRef.current ? 0 : micVolumeRef.current, Track.Source.Microphone);
+        });
         setCanPublish(Boolean(result.canPublish));
         setStatus("live");
         refresh();

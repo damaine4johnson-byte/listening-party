@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getOAuthAccessToken } from "../../../lib/oauth-callback";
 import { oauthCallbackUrl, supabase } from "../../../lib/supabase";
+import { listenerRoomDestination } from "../../../lib/listener-room-return";
 
 export default function ListenerWalletCallback() {
   const [message, setMessage] = useState("Verifying your Google account...");
@@ -34,19 +35,13 @@ export default function ListenerWalletCallback() {
           body: JSON.stringify({ username: chosenUsername }),
         }).catch(() => undefined);
       }
-      const response = await fetch("/api/coins/balance", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        if (active) setMessage("Your wallet could not be loaded. Please try again.");
-        return;
-      }
       const requestedFollow = params.get("follow") ?? "";
       const follow = /^[a-z][a-z0-9_]{2,23}$/i.test(requestedFollow) || /^[a-f0-9]{16}$/i.test(requestedFollow)
         ? requestedFollow
         : "";
       if (follow) {
+        const requestedRoomId = params.get("roomId");
+        const roomDestination = listenerRoomDestination(requestedRoomId);
         const followResponse = await fetch("/api/artists/follow", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -55,11 +50,21 @@ export default function ListenerWalletCallback() {
         if (!followResponse.ok) {
           const result = await followResponse.json().catch(() => ({}));
           if (active) {
-            setArtistUrl(`/artists/${encodeURIComponent(follow)}`);
+            setArtistUrl(`/artists/${encodeURIComponent(follow)}${roomDestination && requestedRoomId ? `?roomId=${encodeURIComponent(requestedRoomId)}` : ""}`);
             setMessage(result.error || "Your account is ready, but following this artist did not complete.");
           }
           return;
         }
+        window.location.replace(roomDestination ?? `/artists/${encodeURIComponent(follow)}`);
+        return;
+      }
+      const response = await fetch("/api/coins/balance", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        if (active) setMessage("Your wallet could not be loaded. Please try again.");
+        return;
       }
       window.location.replace(destination);
     }

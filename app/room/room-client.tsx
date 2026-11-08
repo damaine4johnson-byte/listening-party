@@ -32,6 +32,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
+  const [micVolume, setMicVolume] = useState(0.8);
   const [scrub, setScrub] = useState<number | null>(null);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const [ending, setEnding] = useState(false);
@@ -46,7 +47,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     return !current;
   });
 
-  const video = useRoomVideo(muted || volume === 0);
+  const video = useRoomVideo(muted, micVolume);
 
   const {
     roomTitle, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
@@ -496,6 +497,21 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                       onChange={(event) => { setVolume(Number(event.target.value) / 100); setMuted(false); }}
                     />
                   </div>
+                  {video.status === "live" && (
+                    <div className="rm-vol-hover" title="Host microphone volume">
+                      <span className="rm-vol-icon" aria-hidden="true">🎙</span>
+                      <input
+                        className="rm-seek rm-vol-range"
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(micVolume * 100)}
+                        style={{ ["--pct" as string]: `${Math.round(micVolume * 100)}%` }}
+                        aria-label="Host microphone volume"
+                        onChange={(event) => setMicVolume(Number(event.target.value) / 100)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: 16px; }
-.card { display: grid; gap: 8px; padding: 18px; border-radius: 18px; background: rgb(255 255 255 / 6%); border: 1px solid rgb(255 255 255 / 14%); color: #fff; text-decoration: none; }
+.card { display: grid; gap: 8px; padding: 18px; border-radius: 18px; background: #211b2c; border: 1px solid rgb(255 255 255 / 14%); color: #fff; text-decoration: none; }
 .card:hover { border-color: rgb(255 61 139 / 60%); }
 .avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: rgb(255 255 255 / 12%); display: grid; place-items: center; font-size: 28px; font-weight: 800; }
 .big { width: 110px; height: 110px; font-size: 44px; }
@@ -20,6 +20,9 @@
 .editBtn:hover { border-color: rgb(255 61 139 / 80%); }
 .linkInBio { display: inline-block; margin-top: 6px; color: #7cc4ff; font-size: 14px; text-decoration: none; }
 .linkInBio:hover { text-decoration: underline; }
-.searchBar { display: flex; gap: 10px; margin-top: 14px; }
-.searchBar input { flex: 1; }
+.searchBar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.searchBar input { flex: 1 1 220px; min-width: 0; min-height: 44px; padding: 10px 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+.searchBar input:focus-visible, .searchBar button:focus-visible, .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.searchBar button { min-height: 44px; }
+.searchMessage { margin: 12px 0 0; color: inherit; font-size: 14px; }
 .resultHandle { font-size: 13px; opacity: .8; }

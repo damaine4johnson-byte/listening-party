@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { HOST_SESSION_COOKIE, HOST_SESSION_MAX_AGE, createHostSessionToken, hostProfileId } from "../../../../lib/host-session";
+import { listenerRoomDestination } from "../../../../lib/listener-room-return";
 
 function hasSameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sign-in details are invalid." }, { status: 400 });
   }
   const values = input && typeof input === "object"
-    ? input as { accessToken?: unknown; next?: unknown }
+    ? input as { accessToken?: unknown; next?: unknown; roomId?: unknown }
     : {};
   if (typeof values.accessToken !== "string" || values.accessToken.length > 8192) {
     return NextResponse.json({ error: "Sign in again to continue." }, { status: 401 });
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       accountType: "listener",
-      destination: listenerDestination(values.next),
+      destination: listenerRoomDestination(values.roomId) ?? listenerDestination(values.next),
     });
     response.cookies.set(HOST_SESSION_COOKIE, "", {
       httpOnly: true,

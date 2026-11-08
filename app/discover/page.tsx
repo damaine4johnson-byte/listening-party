@@ -16,11 +16,12 @@ export default async function DiscoverPage() {
   return (
     <main className={`${styles.page} ${styles.wide}`}>
       <h1 className={styles.title}>Discover</h1>
+      <p className={styles.lead}>Search for an artist, find a live room, or explore recent posts.</p>
       <ArtistSearch />
       <StoriesRow artists={artists} />
       <div className={styles.section}><h2>🔴 Live now</h2></div>
       <LiveNowStrip artists={artists} />
-      <div className={styles.section}><h2>🔥 Trending artists</h2><Link href="/artists">See all</Link></div>
+      <div className={styles.section}><h2>🔥 Trending artists</h2><Link href="/artists">See all artists</Link></div>
       {trending.length === 0 && <p className={styles.empty}>No artist profiles yet.</p>}
       <div className={styles.grid}>
         {trending.map((a) => (

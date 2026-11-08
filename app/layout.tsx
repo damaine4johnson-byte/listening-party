@@ -11,4 +11,4 @@ export const metadata: Metadata = {
   title: "Listen Party | Famous Introvert",
   description: "Private first-listen experiences from Famous Introvert Records.",
 };
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head><body className="has-tabs"><SiteMenu />{children}<BottomTabs /><Analytics /></body></html>; }
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head><body className="has-tabs"><a className="skip-link" href="#main-content">Skip to main content</a><SiteMenu /><div id="main-content" tabIndex={-1}>{children}</div><BottomTabs /><Analytics /></body></html>; }

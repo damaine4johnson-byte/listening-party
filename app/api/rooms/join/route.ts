@@ -6,6 +6,8 @@ import { HOST_SESSION_COOKIE } from "../../../../lib/host-session";
 import { readActiveHostSession } from "../../../../lib/host-profile";
 import { getListenerUser } from "../../../../lib/listener-auth";
 import { normalizeInviteCode } from "../../../../lib/invite-code";
+import { handleOf } from "../../../../lib/artists-public";
+import { usernameForHost } from "../../../../lib/artist-username";
 
 function getSupabaseHost() {
   const url = process.env.NEXT_PUBLIC_APP_SUPABASE_URL ?? process.env.APP_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (roomId) {
       const listener = await getListenerUser(request);
       if (!listener) {
-        return NextResponse.json({ error: "Sign in to the listener account that follows this artist." }, { status: 401 });
+        return NextResponse.json({ error: "Sign in to the listener account that follows this artist.", code: "listener_sign_in_required" }, { status: 401 });
       }
       if (room.entry_fee_cents > 0) {
         return NextResponse.json({ error: "Only free rooms can be joined without an invitation code." }, { status: 403 });
@@ -101,7 +103,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Could not verify your artist follow." }, { status: 503 });
       }
       if (!follow) {
-        return NextResponse.json({ error: "Follow this artist to join their free room without a code." }, { status: 403 });
+        const artistHandle = room.host_id
+          ? await usernameForHost(room.host_id) || handleOf(room.host_id)
+          : null;
+        return NextResponse.json({ error: "Follow this artist to join their free room without a code.", code: "follow_required", artistHandle }, { status: 403 });
       }
     }
 

@@ -3,6 +3,9 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { listenerRoomDestination } from "../lib/listener-room-return";
+
+const ROOM_ENTRY_KEY = "fi-pending-free-room-entry";
 
 export default function JoinForm() {
   const [code, setCode] = useState("");
@@ -10,6 +13,9 @@ export default function JoinForm() {
   const [roomId, setRoomId] = useState("");
   const [error, setError] = useState("");
   const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [followArtist, setFollowArtist] = useState<string | null>(null);
+  const [needsFollow, setNeedsFollow] = useState(false);
+  const [entryWarning, setEntryWarning] = useState("");
   const [pending, setPending] = useState(false);
   const [fee, setFee] = useState<{ cents: number; title: string } | null>(null);
   const [paymentSessionId, setPaymentSessionId] = useState("");
@@ -23,9 +29,17 @@ export default function JoinForm() {
     const inviteCode = params.get("invite");
     if (inviteCode) setCode(inviteCode.slice(0, 128));
     const requestedRoomId = params.get("roomId") ?? "";
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedRoomId)) {
+    if (listenerRoomDestination(requestedRoomId)) {
       setRoomId(requestedRoomId);
-      setAuto(true);
+      setAuto(params.get("resume") !== "1");
+      if (params.get("resume") === "1") {
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(ROOM_ENTRY_KEY) ?? "null") as { roomId?: unknown; displayName?: unknown } | null;
+          if (saved?.roomId === requestedRoomId && typeof saved.displayName === "string") setDisplayName(saved.displayName.slice(0, 32));
+        } catch {
+          setEntryWarning("Your display name could not be restored. Please enter it again.");
+        }
+      }
     }
     // Notification links (?invite=CODE&go=1) enter straight away; paid rooms still ask for payment.
     if (inviteCode && params.get("go") === "1" && !params.get("paid")) setAuto(true);
@@ -46,7 +60,7 @@ export default function JoinForm() {
         code?: unknown; displayName?: unknown; paymentSessionId?: unknown;
       } | null;
       if (
-        saved && !paid && typeof saved.code === "string" && typeof saved.displayName === "string" &&
+        saved && !paid && !listenerRoomDestination(requestedRoomId) && typeof saved.code === "string" && typeof saved.displayName === "string" &&
         typeof saved.paymentSessionId === "string" &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved.paymentSessionId)
       ) {
@@ -55,7 +69,7 @@ export default function JoinForm() {
         setPaymentSessionId(saved.paymentSessionId);
       }
     } catch {
-      sessionStorage.removeItem("fi-pending-coin-entry");
+      setEntryWarning("Saved room entry details could not be read. Please enter them again.");
     }
   }, []);
 
@@ -168,6 +182,9 @@ export default function JoinForm() {
     event.preventDefault();
     setError("");
     setNeedsSignIn(false);
+    setNeedsFollow(false);
+    setFollowArtist(null);
+    setEntryWarning("");
     setPending(true);
 
     try {
@@ -180,6 +197,7 @@ export default function JoinForm() {
       if (roomId) {
         const { data, error: sessionError } = await supabase?.auth.getSession() ?? { data: { session: null }, error: null };
         if (sessionError || !data.session?.access_token) {
+          saveRoomEntry();
           setNeedsSignIn(true);
           setError("Sign in to the listener account that follows this artist.");
           return;
@@ -206,18 +224,43 @@ export default function JoinForm() {
         return;
       }
       if (!response.ok) {
-        if (roomId && response.status === 401) setNeedsSignIn(true);
+        if (roomId && response.status === 401 && result.code === "listener_sign_in_required") {
+          saveRoomEntry();
+          setNeedsSignIn(true);
+        }
+        if (roomId && response.status === 403 && result.code === "follow_required") {
+          saveRoomEntry();
+          setNeedsFollow(true);
+          if (typeof result.artistHandle === "string" && (/^[a-z][a-z0-9_]{2,23}$/.test(result.artistHandle) || /^[a-f0-9]{16}$/.test(result.artistHandle))) setFollowArtist(result.artistHandle);
+        }
         setError(result.error || "Could not join this room.");
         return;
       }
 
-      sessionStorage.removeItem("fi-pending-join");
-      sessionStorage.removeItem("fi-pending-coin-entry");
+      try {
+        sessionStorage.removeItem("fi-pending-join");
+        sessionStorage.removeItem("fi-pending-coin-entry");
+        if (roomId) {
+          const saved = JSON.parse(sessionStorage.getItem(ROOM_ENTRY_KEY) ?? "null") as { roomId?: unknown } | null;
+          if (saved?.roomId === roomId) sessionStorage.removeItem(ROOM_ENTRY_KEY);
+        }
+      } catch {
+        console.warn("Could not clear saved room entry details.");
+      }
       window.location.assign("/room");
     } catch {
       setError("Room service is unavailable. Try again shortly.");
     } finally {
       setPending(false);
+    }
+  }
+
+  function saveRoomEntry() {
+    try {
+      sessionStorage.setItem(ROOM_ENTRY_KEY, JSON.stringify({ roomId, displayName: displayName.slice(0, 32) }));
+      setEntryWarning("");
+    } catch {
+      setEntryWarning("Your display name could not be saved. You may need to enter it again.");
     }
   }
 
@@ -295,7 +338,9 @@ export default function JoinForm() {
             ? `Pay $${(fee.cents / 100).toFixed(2)} and enter →`
             : "Enter room →"}
       </button>
-      {needsSignIn && <p className="small"><Link href="/signin">Sign in</Link> with the listener account that follows this artist, then return to this room.</p>}
+      {needsSignIn && <p className="small"><Link href={`/signin?roomId=${encodeURIComponent(roomId)}`} onClick={saveRoomEntry}>Sign in</Link> with the listener account that follows this artist. You&apos;ll return to this room afterward.</p>}
+      {needsFollow && <p className="small"><Link href={followArtist ? `/artists/${encodeURIComponent(followArtist)}?roomId=${encodeURIComponent(roomId)}` : "/artists"} onClick={saveRoomEntry}>{followArtist ? "Follow this artist" : "Find and follow this artist"}</Link>{followArtist ? " to return to this room." : ", then return to their profile to join the room."}</p>}
+      {entryWarning && <p role="status" className="small">{entryWarning}</p>}
       {error && <p role="alert" className="small">{error}</p>}
     </form>
   );

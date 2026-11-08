@@ -66,11 +66,16 @@ Open **Profile setup** from the host console to set the public display name, bio
 
 The server generates a 6-character alphanumeric invite code (two groups of three, like ABC-DEF) when creating a room. Codes use an unambiguous alphabet (no 0/O, 1/I/L) and typed codes are normalized, so common mistakes (O for 0, 1 for I, dashes and spaces) still match. The short length suits private sharing with a known, small group; regenerate the code from the host dashboard if it ever leaks. Only the SHA-256 hash of the normalized code is stored, and the code is displayed once after creation. Copy it and share it privately; it cannot be recovered from the dashboard.
 
-From `/host`, create a room, upload audio to its playlist, and share the one-time invite code. Uploads go directly to the private `tracks` bucket through a short-lived signed upload URL; the app stores the private object path and gives listeners short-lived signed playback URLs only after room join. The host must also join the room with its invite code to use the synchronized playback controls. When LiveKit is configured, the host also gets **Share camera** and **Share screen** buttons in the room; listeners watch the live video in the stage (the host's microphone and shared-screen audio are streamed too), and only the room's host can publish.
+From `/host`, create a room, upload audio to its playlist, and share the one-time invite code. Uploads go directly to the private `tracks` bucket through a short-lived signed upload URL; the app stores the private object path and gives listeners short-lived signed playback URLs only after room join. The host must also join the room with its invite code to use the synchronized playback controls. When LiveKit is configured, the host also gets **Share camera** and **Share screen** buttons in the room; listeners watch the live video in the stage (the host's microphone and shared-screen audio are streamed too), and only the room's host can publish. Listeners can adjust the host microphone level separately from room music volume.
+
+Listeners can use **Join with a code** or **Find an artist** on the home page. The main navigation links to Home, Discover, Feed, Artists, and Profile; the Menu provides account, wallet, and support links.
+The listener feed provides links from empty Following and Saved views to sign-in, artists, or the For you feed. Profile tools are grouped into room profile, wallet, tipping, login, and appearance sections.
 
 The first successful join creates the room's paused `room_state` row and a listener membership. Active listener heartbeats expire after ten minutes, and room joins are serialized against the room capacity. Room state, chat, and reactions refresh every four seconds; direct anonymous table access remains disabled.
 
-Listeners who follow an artist can join that artist's free rooms from the public profile without entering a room code. Paid rooms and other invitations continue to use their invite code.
+Listeners who follow an artist can join that artist's free rooms from the public profile without entering a room code. If a listener needs to sign in first, the follow completes after Google sign-in and returns them to the artist's profile. Paid rooms and other invitations continue to use their invite code.
+The artist profile links directly to the invitation-code form for paid rooms; a code is still required before checkout.
+When joining a free room as a follower, listeners who need to sign in or follow the artist are returned to that room's entry form. Their display name is temporarily saved in the current browser tab when available; room access is still verified on entry.
 
 ## 4. Artist tiers
 - Tier 1: free, up to 100 active listeners, ad-supported.

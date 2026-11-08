@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { listenerRoomDestination } from "../../lib/listener-room-return";
 import styles from "./signin.module.css";
+
+function requestedRoomId() {
+  const roomId = new URLSearchParams(window.location.search).get("roomId");
+  return listenerRoomDestination(roomId) ? roomId : null;
+}
+
+function callbackPath() {
+  const roomId = requestedRoomId();
+  return `/auth/callback?next=%2Fprofile${roomId ? `&roomId=${encodeURIComponent(roomId)}` : ""}`;
+}
 
 export default function ListenerSigninForm() {
   const [pending, setPending] = useState(false);
@@ -14,7 +25,7 @@ export default function ListenerSigninForm() {
     // Let the server route an existing session to the matching account type.
     if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.access_token) window.location.replace("/auth/callback?next=/profile");
+      if (data.session?.access_token) window.location.replace(callbackPath());
     });
   }, []);
 
@@ -27,7 +38,7 @@ export default function ListenerSigninForm() {
     setPending(true);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/profile`, queryParams: { prompt: "select_account" } },
+      options: { redirectTo: `${window.location.origin}${callbackPath()}`, queryParams: { prompt: "select_account" } },
     });
     if (authError) {
       setError("Google sign-in could not be started. Check the Supabase Google provider settings.");
@@ -54,12 +65,13 @@ export default function ListenerSigninForm() {
       const routeResponse = await fetch("/api/auth/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, next: "/profile" }),
+        body: JSON.stringify({ accessToken, next: "/profile", roomId: requestedRoomId() }),
       });
       const routeResult = await routeResponse.json();
       if (!routeResponse.ok) { setError(routeResult.error || "Could not resolve your account."); setPending(false); return; }
       if (routeResult.accountType === "host") await supabase.auth.signOut();
-      window.location.replace(routeResult.destination === "/host" ? "/host" : routeResult.accountType === "host" ? "/profile" : "/profile");
+      const roomDestination = listenerRoomDestination(requestedRoomId());
+      window.location.replace(routeResult.accountType === "listener" && roomDestination && routeResult.destination === roomDestination ? roomDestination : "/profile");
     } catch {
       setError("Could not sign in. Try again."); setPending(false);
     }

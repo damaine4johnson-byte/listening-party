@@ -75,13 +75,20 @@ export async function searchPublicArtists(query: string, limit = 8): Promise<Pub
     db.from("artist_usernames").select("host_id, username").ilike("username", `%${q}%`).limit(limit),
     db.from("host_profiles").select("host_id, display_name, bio, avatar_url").ilike("display_name", `%${q}%`).neq("display_name", "").limit(limit),
   ]);
-  if (userMatches.error && nameMatches.error) return [];
+  if (userMatches.error && nameMatches.error) {
+    console.error("Artist search failed", { usernameCode: userMatches.error.code, nameCode: nameMatches.error.code });
+    throw new Error("Artist search failed.");
+  }
   const ids: string[] = [];
   const push = (id: string) => { if (!ids.includes(id) && ids.length < limit) ids.push(id); };
   for (const row of userMatches.data ?? []) push(row.host_id as string);
   for (const row of nameMatches.data ?? []) push(row.host_id as string);
   if (!ids.length) return [];
-  const { data: active } = await db.from("host_accounts").select("host_id").in("host_id", ids).eq("account_status", "active");
+  const { data: active, error: activeError } = await db.from("host_accounts").select("host_id").in("host_id", ids).eq("account_status", "active");
+  if (activeError) {
+    console.error("Artist search account lookup failed", { code: activeError.code });
+    throw new Error("Artist search account lookup failed.");
+  }
   const activeIds = new Set((active ?? []).map((a) => a.host_id as string));
   const artists = await Promise.all(ids.filter((id) => activeIds.has(id)).map((id) => getPublicArtistById(id)));
   return artists.filter((a): a is PublicArtist => Boolean(a));

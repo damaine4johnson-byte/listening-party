@@ -194,66 +194,58 @@ export default function ListenerProfileClient() {
 
       {profile.bio && <p className="lp-bio">“{profile.bio}”</p>}
 
-      <div className="lp-stats">
-        <div><strong>${(totalTippedCents / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong><span>Total tipped</span></div>
-        <div><strong>{tipCount}</strong><span>Tips sent</span></div>
-        <div><strong>{balanceCoins === null ? "…" : balanceCoins.toLocaleString()}</strong><span>Coins</span></div>
-      </div>
-
-      <div className="lp-progress">
-        {upcoming ? (
-          <>
-            <div className="small">${((upcoming.minCents - totalTippedCents) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} more in tips to reach <b>{upcoming.label}</b></div>
-            <div className="lp-bar"><span style={{ width: `${Math.min(100, (totalTippedCents / upcoming.minCents) * 100)}%` }} /></div>
-          </>
-        ) : (
-          <div className="small">You have reached the top tipper level. Legend!</div>
-        )}
-      </div>
-
-      <div className="eyebrow">Tipper badges</div>
-      <div className="lp-badges">
-        {TIP_TIERS.map((item) => {
-          const earned = totalTippedCents >= item.minCents;
-          return (
-            <div key={item.id} className={earned ? "earned" : "locked"} title={`${item.label}: $${item.minCents / 100}+ sent`}>
-              <TipMedal tier={item} size={52} />
-              <span>{item.label}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="eyebrow">Your color</div>
-      <div className="lp-accents" role="radiogroup" aria-label="Profile color">
-        {ACCENTS.map((color) => (
-          <button
-            key={color}
-            type="button"
-            role="radio"
-            aria-checked={color === accent}
-            aria-label={`Use color ${color}`}
-            className={color === accent ? "on" : ""}
-            style={{ background: color }}
-            onClick={() => chooseAccent(color)}
-          />
-        ))}
-      </div>
-
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 16 }}>
-        <div>
-          <div className="eyebrow">Coin balance</div>
-          <h3 style={{ margin: 0 }}>
-            {balanceCoins === null ? "Loading..." : `${balanceCoins.toLocaleString()} coins`}
-            {coinDollars !== null && <span className="small"> · about ${coinDollars.toFixed(2)}</span>}
-          </h3>
+      <section className="lp-section" aria-labelledby="lp-tipping-title">
+        <h3 id="lp-tipping-title">Your tipping</h3>
+        <div className="lp-stats">
+          <div><strong>${(totalTippedCents / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong><span>Total tipped</span></div>
+          <div><strong>{tipCount}</strong><span>Tips sent</span></div>
+          <div><strong>{balanceCoins === null ? "…" : balanceCoins.toLocaleString()}</strong><span>Coins</span></div>
         </div>
-        <Link className="btn secondary" href="/wallet">Top up coins</Link>
-      </div>
-      <p className="small">1 USD = {coinsPerUsd} coins. Spend coins on paid room entry and song boosts.</p>
 
-      <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: "16px 0" }} />
+        <div className="lp-progress">
+          {upcoming ? (
+            <>
+              <div className="small">${((upcoming.minCents - totalTippedCents) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} more in tips to reach <b>{upcoming.label}</b></div>
+              <div className="lp-bar"><span style={{ width: `${Math.min(100, (totalTippedCents / upcoming.minCents) * 100)}%` }} /></div>
+            </>
+          ) : (
+            <div className="small">You have reached the top tipper level. Legend!</div>
+          )}
+        </div>
 
+        <details className="lp-details">
+          <summary>Tipper badges <span>{TIP_TIERS.filter((item) => totalTippedCents >= item.minCents).length} earned</span></summary>
+          <div className="lp-badges">
+            {TIP_TIERS.map((item) => {
+              const earned = totalTippedCents >= item.minCents;
+              return (
+                <div key={item.id} className={earned ? "earned" : "locked"} title={`${item.label}: $${item.minCents / 100}+ sent`}>
+                  <TipMedal tier={item} size={52} />
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      </section>
+
+      <section className="lp-section" aria-labelledby="lp-wallet-title">
+        <h3 id="lp-wallet-title">Coin wallet</h3>
+        <div className="lp-wallet-row">
+          <div>
+            <div className="eyebrow">Your balance</div>
+            <p className="lp-balance">
+              {balanceCoins === null ? "Loading..." : `${balanceCoins.toLocaleString()} coins`}
+              {coinDollars !== null && <span className="small"> · about ${coinDollars.toFixed(2)}</span>}
+            </p>
+          </div>
+          <Link className="btn secondary" href="/wallet">Buy coins</Link>
+        </div>
+        <p className="small">1 USD = {coinsPerUsd} coins. Spend coins on paid room entry and song boosts.</p>
+      </section>
+
+      <section className="lp-section" aria-labelledby="lp-profile-title">
+      <h3 id="lp-profile-title">Room profile</h3>
       {!editing ? (
         <>
           <div className="eyebrow">About you</div>
@@ -305,8 +297,30 @@ export default function ListenerProfileClient() {
           </div>
         </form>
       )}
+      </section>
 
-      <LoginDetails />
+      <details className="lp-details lp-login-details">
+        <summary>Login details</summary>
+        <LoginDetails />
+      </details>
+
+      <details className="lp-details lp-appearance-details">
+        <summary>Profile color</summary>
+        <div className="lp-accents" role="radiogroup" aria-label="Profile color">
+          {ACCENTS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              role="radio"
+              aria-checked={color === accent}
+              aria-label={`Use color ${color}`}
+              className={color === accent ? "on" : ""}
+              style={{ background: color }}
+              onClick={() => chooseAccent(color)}
+            />
+          ))}
+        </div>
+      </details>
 
       {notice && <p className="small" role="status">{notice}</p>}
       {error && <p className="small" role="alert">{error}</p>}

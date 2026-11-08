@@ -6,6 +6,9 @@
 .section h2 { margin: 0; font-size: 18px; font-weight: 800; }
 .section a { color: var(--accent); font-size: 13px; font-weight: 700; text-decoration: none; }
 .empty { color: var(--text-dim); padding: 18px; border: 1px dashed var(--border); border-radius: 16px; text-align: center; }
+.empty p { margin: 0 0 12px; }
+.emptyActions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.emptyActions a { text-decoration: none; }
 
 /* Stories-style highlights */
 .stories { display: flex; gap: 14px; overflow-x: auto; padding: 6px 2px 12px; scrollbar-width: none; }

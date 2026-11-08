@@ -26,7 +26,7 @@ export function StoriesRow({ artists }: { artists: DiscoverArtist[] }) {
 
 export function LiveNowStrip({ artists }: { artists: DiscoverArtist[] }) {
   const live = artists.filter((a) => a.live);
-  if (live.length === 0) return <p className={styles.empty}>No one is live right now. Follow artists to get notified when they open a room.</p>;
+  if (live.length === 0) return <p className={styles.empty}>No one is live right now. <Link href="/artists">Find and follow artists</Link> to get notified when they open a room.</p>;
   return (
     <div className={styles.liveStrip}>
       {live.map((a) => (

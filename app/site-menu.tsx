@@ -99,6 +99,7 @@ export default function SiteMenu() {
         panel.current?.contains(event.target as Node)
       )) return;
       setOpen(false);
+      if (event.type === "keydown") trigger.current?.focus();
     };
     const reposition = () => positionPanel();
     document.addEventListener("pointerdown", close);
@@ -123,7 +124,9 @@ export default function SiteMenu() {
       { href: "/feed", label: "Feed", icon: "▦" },
       { href: "/host", label: "Rooms", icon: "🎧" },
       { href: "/bank", label: "Balance", icon: "💰" },
+      { href: "/wallet", label: "Buy coins", icon: "🪙" },
       { href: "/host/profile", label: "Settings", icon: "⚙️" },
+      { href: "/help", label: "Help & support", icon: "ⓘ" },
       { href: "/about", label: "About", icon: "ⓘ" },
     ]
     : [
@@ -139,24 +142,33 @@ export default function SiteMenu() {
     <div className={styles.bar} ref={box}>
       <div className={styles.left}>
         <nav className={styles.links} aria-label="Primary">
-          <Link href="/discover">Discover</Link>
-          <Link href="/feed">Feed</Link>
-          <Link href="/artists">Artists</Link>
+          {[
+            { href: "/", label: "Home" },
+            { href: "/discover", label: "Discover" },
+            { href: "/feed", label: "Feed" },
+            { href: "/artists", label: "Artists" },
+            { href: "/profile", label: "Profile" },
+          ].map((link) => (
+            <Link key={link.href} href={link.href} aria-current={(link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`)) ? "page" : undefined}>
+              {link.label}
+            </Link>
+          ))}
         </nav>
         {social && <button type="button" className={styles.iconLink} onClick={toggleTheme} aria-label="Toggle light or dark theme">{theme === "dark" ? "☀️" : "🌙"}</button>}
       </div>
       <div className={styles.right}>
         <NotificationBell />
-        <button ref={trigger} type="button" className={styles.trigger} aria-expanded={open} aria-haspopup="menu" onClick={() => {
+        <button ref={trigger} type="button" className={styles.trigger} aria-expanded={open} aria-controls={open ? "account-navigation" : undefined} onClick={() => {
           if (!open) positionPanel();
           setOpen((v) => !v);
         }}>
           <span className={styles.triggerAvatarFallback} aria-hidden="true">☰</span>
+          <span>Menu</span>
         </button>
         {open && typeof document !== "undefined" && createPortal(
-          <nav ref={panel} className={styles.panel} style={panelPosition} aria-label="Account menu" role="menu">
+          <nav id="account-navigation" ref={panel} className={styles.panel} style={panelPosition} aria-label="Account and more">
             {signedIn ? (
-              <Link className={styles.header} href={profileHref} role="menuitem">
+              <Link className={styles.header} href={profileHref} onClick={() => setOpen(false)}>
                 {viewer.avatarUrl
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img className={styles.headerAvatar} src={viewer.avatarUrl} alt="" />
@@ -169,7 +181,7 @@ export default function SiteMenu() {
                 </span>
               </Link>
             ) : (
-              <Link className={styles.header} href="/signin" role="menuitem">
+              <Link className={styles.header} href="/signin" onClick={() => setOpen(false)}>
                 <span className={styles.headerAvatarFallback}>+</span>
                 <span className={styles.headerText}><strong>Sign in</strong><em>Listener or artist</em></span>
               </Link>
@@ -179,7 +191,7 @@ export default function SiteMenu() {
               <span className={styles.itemLoading}>Loading…</span>
             ) : (
               links.map((link) => (
-                <Link key={link.href} href={link.href} role="menuitem" className={styles.item} aria-current={pathname === link.href ? "page" : undefined}>
+                <Link key={link.href} href={link.href} className={styles.item} aria-current={pathname === link.href ? "page" : undefined} onClick={() => setOpen(false)}>
                   <span className={styles.icon} aria-hidden>{link.icon}</span>{link.label}
                   {link.label === "Balance" && viewer.balanceCoins !== null && (
                     <span className={styles.pill}>{viewer.balanceCoins.toLocaleString()} 🪙</span>
@@ -190,7 +202,7 @@ export default function SiteMenu() {
             {signedIn && (
               <>
                 <div className={styles.divider} />
-                <button type="button" role="menuitem" className={styles.item} onClick={() => { setOpen(false); void supabase?.auth.signOut().then(() => window.location.assign("/")); }}>
+                <button type="button" className={styles.item} onClick={() => { setOpen(false); void supabase?.auth.signOut().then(() => window.location.assign("/")); }}>
                   <span className={styles.icon} aria-hidden>↩</span>Sign out
                 </button>
               </>

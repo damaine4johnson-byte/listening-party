@@ -836,6 +836,15 @@
   pointer-events: auto;
 }
 
+@media (max-width: 720px) {
+  .rm-vol-hover .rm-vol-range {
+    width: 80px;
+    opacity: 1;
+    margin: 0 6px;
+    pointer-events: auto;
+  }
+}
+
 .rm-add-songs { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; }
 .rm-add-songs summary { cursor: pointer; font-weight: 700; }
 

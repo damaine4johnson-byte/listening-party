@@ -14,4 +14,19 @@ html[data-theme="light"] body { background: var(--bg); color: var(--text); }
 .btn, button.btn { background: var(--grad); border: 0; color: #1a0d05; font-weight: 800; border-radius: 999px; }
 input, textarea, select { border-radius: 12px; }
 body { padding-bottom: env(safe-area-inset-bottom); }
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 200;
+  padding: 12px 16px;
+  transform: translateY(calc(-100% - 12px));
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 35%);
+  font-weight: 700;
+}
+.skip-link:focus { transform: translateY(0); }
+#main-content:focus { outline: none; }
 @media (max-width: 720px) { body.has-tabs { padding-bottom: 72px; } }
