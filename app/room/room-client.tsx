@@ -5,6 +5,10 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoMark from "../logo-mark";
 import { useRoomVideo } from "./use-room-video";
+import CameraSettingsPanel from "./camera-settings-panel";
+import { useCameraPipeline, useCameraSettings } from "./use-camera-settings";
+import { captureResolution, maxBitrateBps } from "./camera-settings";
+import OnScreenComments from "./comment-overlay";
 import RoomTrackManager from "../host/room-track-manager";
 import "./room-console.css";
 import { useRoomSession, useRoomTracks } from "./use-room-session";
@@ -38,6 +42,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [ending, setEnding] = useState(false);
   const [mirrored, setMirrored] = useState(true);
   const [tipOpen, setTipOpen] = useState(false);
+  const [commentsOnScreen, setCommentsOnScreen] = useState(true);
   const seenReactions = useRef<Set<string> | null>(null);
   const advancing = useRef(false);
 
@@ -49,6 +54,22 @@ export default function RoomClient({ displayName, previewVideoControls = false }
       setNotice("Camera mirror preference could not be loaded.");
     }
   }, []);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("room-comments-onscreen") === "0") setCommentsOnScreen(false);
+    } catch {
+      // The comment overlay simply stays on when the preference cannot be read.
+    }
+  }, []);
+  const toggleComments = () => {
+    const next = !commentsOnScreen;
+    setCommentsOnScreen(next);
+    try {
+      window.localStorage.setItem("room-comments-onscreen", next ? "1" : "0");
+    } catch {
+      // Preference is kept for this visit only.
+    }
+  };
   const toggleMirror = () => {
     const next = !mirrored;
     setMirrored(next);
@@ -59,7 +80,16 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     }
   };
 
-  const video = useRoomVideo(muted, micVolume);
+  const cameraSettings = useCameraSettings();
+  const getCameraStartOptions = useCallback(() => {
+    const current = cameraSettings.settingsRef.current;
+    return {
+      capture: { resolution: captureResolution(current) },
+      publish: { videoEncoding: { maxBitrate: maxBitrateBps(current), maxFramerate: current.frameRate } },
+    };
+  }, [cameraSettings.settingsRef]);
+  const video = useRoomVideo(muted, micVolume, getCameraStartOptions);
+  const cameraPipeline = useCameraPipeline(video.getCameraTrack, video.cameraOn, cameraSettings.settings);
 
   const {
     roomTitle, roomStatus, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
@@ -432,6 +462,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                 <span key={floater.id} style={{ left: `${floater.left}%` }}>{floater.symbol}</span>
               ))}
             </div>
+            <OnScreenComments messages={messages} ready={state !== null} enabled={commentsOnScreen} />
             <div className="rm-overlay">
               <div className="rm-now">
                 <span className="rm-now-label">NOW PLAYING</span>
@@ -483,6 +514,9 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                       {!audioPaused ? "❚❚" : "▶"}
                     </button>
                   )}
+                  <button className="rm-pill ghost" type="button" aria-pressed={commentsOnScreen} onClick={toggleComments}>
+                    {commentsOnScreen ? "💬 Chat on screen" : "💬 Chat hidden"}
+                  </button>
                   <div className="rm-vol-hover">
                     <button
                       className="rm-vol-icon"
@@ -655,6 +689,18 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                     </button>
                   )}
                 </div>
+              )}
+              {(video.canPublish || previewVideoControls) && (
+                <CameraSettingsPanel
+                  settings={cameraSettings.settings}
+                  onChange={cameraSettings.update}
+                  onPreset={cameraSettings.applyPreset}
+                  onResetLook={cameraSettings.resetLook}
+                  cameraOn={video.cameraOn}
+                  applying={cameraPipeline.applying}
+                  filtersSupported={cameraPipeline.filtersSupported}
+                  notice={cameraPipeline.notice}
+                />
               )}
               {video.serverReady === false && !previewVideoControls && (
                 <p className="small">Camera and screen sharing are off until live video (LiveKit) is set up on the server.</p>

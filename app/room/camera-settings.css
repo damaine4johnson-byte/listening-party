@@ -1,0 +1,72 @@
+.cam-settings { display: grid; gap: 10px; }
+
+.cam-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line, #2c2c2c);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 3%);
+  max-width: 520px;
+}
+
+.cam-status { margin: 0; }
+.cam-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.cam-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.cam-divider { height: 1px; background: var(--line, #2c2c2c); }
+
+.cam-chip,
+.cam-filter {
+  border: 1px solid #3b3b3b;
+  border-radius: 999px;
+  background: #242424;
+  color: #e8e8e8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+
+.cam-chip.on,
+.cam-filter.on {
+  background: var(--red, #ef3434);
+  border-color: var(--red, #ef3434);
+  color: #fff;
+}
+
+.cam-chip:focus-visible,
+.cam-filter:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.cam-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+
+.cam-filter {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  padding: 8px 6px;
+}
+
+.cam-swatch {
+  width: 100%;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0c29b 0%, #6aa5d8 55%, #7ec27e 100%);
+}
+
+.cam-slider {
+  display: grid;
+  grid-template-columns: 84px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #d0d0d0;
+}
+
+.cam-slider output { text-align: right; font-variant-numeric: tabular-nums; color: #fff; }
+.cam-reset { justify-self: start; }
+
+@media (max-width: 560px) {
+  .cam-slider { grid-template-columns: 74px 1fr 56px; }
+}

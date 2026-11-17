@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Track } from "livekit-client";
-import type { Room } from "livekit-client";
+import type { LocalVideoTrack, Room, TrackPublishOptions, VideoCaptureOptions } from "livekit-client";
 import { getBroadcastSources, pauseBroadcast, resumeBroadcast } from "./broadcast-controls";
 import type { BroadcastSources } from "./broadcast-controls";
 
 type VideoStatus = "off" | "connecting" | "live" | "error";
+export type CameraStartOptions = { capture?: VideoCaptureOptions; publish?: TrackPublishOptions };
 
 // Connects to the room's live video session. The host can publish camera/screen;
 // listeners only subscribe. Does nothing when LiveKit is not configured.
-export function useRoomVideo(muted: boolean, micVolume: number) {
+export function useRoomVideo(muted: boolean, micVolume: number, getCameraStartOptions?: () => CameraStartOptions) {
   const roomRef = useRef<Room | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioBoxRef = useRef<HTMLDivElement>(null);
@@ -216,13 +217,19 @@ export function useRoomVideo(muted: boolean, micVolume: number) {
     setError("");
     try {
       const next = !room.localParticipant.isCameraEnabled;
-      await room.localParticipant.setCameraEnabled(next);
+      const options = next ? getCameraStartOptions?.() : undefined;
+      await room.localParticipant.setCameraEnabled(next, options?.capture, options?.publish);
     } catch {
       setError("Could not start the camera. Check your browser permissions.");
     } finally {
       finishOperation();
     }
-  }, [beginOperation, finishOperation]);
+  }, [beginOperation, finishOperation, getCameraStartOptions]);
+
+  const getCameraTrack = useCallback(() => {
+    const publication = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera);
+    return (publication?.track as LocalVideoTrack | undefined) ?? null;
+  }, []);
 
   const toggleMicrophone = useCallback(async () => {
     const room = roomRef.current;
@@ -297,5 +304,5 @@ export function useRoomVideo(muted: boolean, micVolume: number) {
     }
   }, [beginOperation, finishOperation]);
 
-  return { videoRef, audioBoxRef, status, serverReady, canPublish, hasVideo, cameraOn, microphoneOn, screenOn, broadcastState, broadcastBusy, broadcastNotice, connectionNotice, audioBlocked, audioError, error, retryAudio, toggleCamera, toggleMicrophone, toggleScreen, changeBroadcast, stopAll };
+  return { videoRef, audioBoxRef, status, serverReady, canPublish, hasVideo, cameraOn, microphoneOn, screenOn, broadcastState, broadcastBusy, broadcastNotice, connectionNotice, audioBlocked, audioError, error, retryAudio, toggleCamera, getCameraTrack, toggleMicrophone, toggleScreen, changeBroadcast, stopAll };
 }
