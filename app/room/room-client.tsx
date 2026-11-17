@@ -36,21 +36,33 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   const [scrub, setScrub] = useState<number | null>(null);
   const [floaters, setFloaters] = useState<{ id: string; symbol: string; left: number }[]>([]);
   const [ending, setEnding] = useState(false);
-  const [mirrored, setMirrored] = useState(false);
+  const [mirrored, setMirrored] = useState(true);
   const [tipOpen, setTipOpen] = useState(false);
   const seenReactions = useRef<Set<string> | null>(null);
   const advancing = useRef(false);
 
-  useEffect(() => { setMirrored(window.localStorage.getItem("room-video-mirrored") === "1"); }, []);
-  const toggleMirror = () => setMirrored((current) => {
-    window.localStorage.setItem("room-video-mirrored", current ? "0" : "1");
-    return !current;
-  });
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("room-video-mirrored");
+      if (saved === "0" || saved === "1") setMirrored(saved === "1");
+    } catch {
+      setNotice("Camera mirror preference could not be loaded.");
+    }
+  }, []);
+  const toggleMirror = () => {
+    const next = !mirrored;
+    setMirrored(next);
+    try {
+      window.localStorage.setItem("room-video-mirrored", next ? "1" : "0");
+    } catch {
+      setNotice("Camera mirror preference could not be saved.");
+    }
+  };
 
   const video = useRoomVideo(muted, micVolume);
 
   const {
-    roomTitle, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
+    roomTitle, roomStatus, coverUrl, roomDescription, hostProfile, showAds, houseAd, isHost,
     viewerCount, inviteCode, state, messages, reactions, ended, endSession,
     coinSignedIn, coinBalance, refreshCoinBalance, lastCommandAt, clockOffset, setState,
     tipAlerts, appendMessage, appendReaction,
@@ -304,7 +316,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
     if (!isHost) return;
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)) return;
+      if (target && (["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(target.tagName) || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const now = audioRef.current?.currentTime ?? 0;
       if (event.code === "Space") { event.preventDefault(); void setPlayback(state?.status === "playing" ? "paused" : "playing"); }
@@ -320,7 +332,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
   }, [isHost, state?.status, setPlayback, seekTo, advanceTrack, previousTrack]);
 
   const hue = hashString(roomTitle) % 360;
-  const showLive = isPlaying || video.hasVideo;
+  const showLive = roomStatus === "live" || isPlaying || video.hasVideo;
   const trackLength = activeTrack?.durationSeconds ?? (duration || 0);
   const progress = trackLength > 0 ? Math.min(100, (currentTime / trackLength) * 100) : 0;
   const participants = new Set([...messages.map((m) => m.display_name), ...reactions.map((r) => r.display_name), displayName]).size;
@@ -388,13 +400,8 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           <div className={`rm-stage ${video.hasVideo ? "has-video" : ""}`} style={{ ["--hue" as string]: hue }}>
             {coverUrl && <img className="rm-cover" src={coverUrl} alt="" aria-hidden="true" />}
             <div className="rm-glow" aria-hidden="true" />
-            <video ref={video.videoRef} className={`rm-video ${mirrored ? "mirrored" : ""}`} autoPlay playsInline muted aria-label="Host live video" />
+            <video ref={video.videoRef} className={`rm-video ${isHost && video.cameraOn && !video.screenOn && mirrored ? "mirrored" : ""}`} autoPlay playsInline muted aria-label="Host live video" />
             <div ref={video.audioBoxRef} hidden />
-            {video.hasVideo && (
-              <button className="rm-mirror" type="button" aria-pressed={mirrored} onClick={toggleMirror}>
-                ⇋ {mirrored ? "Unmirror" : "Mirror"} video
-              </button>
-            )}
             <div className="rm-badges">
               <span className={`rm-live ${showLive ? "on" : ""}`}>{showLive ? "● LIVE" : "❚❚ PAUSED"}</span>
               <span className="rm-viewers">👥 {viewerCount ?? participants} in the room</span>
@@ -450,7 +457,7 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                         <button
                           className="rm-play"
                           type="button"
-                          aria-label={isPlaying ? "Pause for the room" : "Play for the room"}
+                          aria-label={isPlaying ? "Pause song for everyone" : "Play song for everyone"}
                           onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}
                         >
                           {isPlaying ? "❚❚" : "▶"}
@@ -539,6 +546,14 @@ export default function RoomClient({ displayName, previewVideoControls = false }
           </div>
 
           <div className="rm-info">
+            {video.connectionNotice && <p className="small" role="status">{video.connectionNotice}</p>}
+            {video.audioBlocked && (
+              <div role="alert">
+                <p className="small">Your browser blocked live audio, including the host&apos;s microphone.</p>
+                <button className="btn secondary" type="button" onClick={() => void video.retryAudio()}>Enable live audio</button>
+                {video.audioError && <p className="small">{video.audioError}</p>}
+              </div>
+            )}
             <h1>{roomTitle}</h1>
             <div className="rm-host">
               {hostProfile?.avatar_url
@@ -604,22 +619,50 @@ export default function RoomClient({ displayName, previewVideoControls = false }
                   <span className="small">Not saved for this room. Generate a new invite from the host dashboard to see it here.</span>
                 )}
               </div>
+              <div className="row" aria-label="Song and broadcast controls">
+                <button className="btn secondary" type="button" disabled={!activeTrack || pending} onClick={() => void setPlayback(isPlaying ? "paused" : "playing")}>
+                  {isPlaying ? "❚❚ Pause song" : "▶ Play song"}
+                </button>
+                {(video.canPublish || previewVideoControls) && (
+                  <>
+                    {video.broadcastState !== "paused" && (
+                      <button className="btn secondary" type="button" disabled={video.broadcastBusy || video.status !== "live"} onClick={() => void video.changeBroadcast("pause")}>
+                        {video.broadcastState === "incomplete" ? "Retry pausing broadcast" : "❚❚ Pause broadcast"}
+                      </button>
+                    )}
+                    {video.broadcastState !== "active" && (
+                      <button className="btn secondary" type="button" disabled={video.broadcastBusy || video.status !== "live"} onClick={() => void video.changeBroadcast("resume")}>
+                        ▶ Resume broadcast
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
               {(video.canPublish || previewVideoControls) && (
                 <div className="row">
-                  <button className={`btn ${video.cameraOn ? "" : "secondary"}`} type="button" aria-pressed={video.cameraOn} onClick={() => void video.toggleCamera()}>
+                  <button className={`btn ${video.cameraOn ? "" : "secondary"}`} type="button" aria-pressed={video.cameraOn} disabled={video.broadcastBusy || video.broadcastState !== "active" || video.status !== "live"} onClick={() => void video.toggleCamera()}>
                     {video.cameraOn ? "■ Stop camera" : "🎥 Share camera"}
                   </button>
-                  <button className={`btn ${video.screenOn ? "" : "secondary"}`} type="button" aria-pressed={video.screenOn} onClick={() => void video.toggleScreen()}>
+                  <button className={`btn ${video.microphoneOn ? "" : "secondary"}`} type="button" aria-pressed={video.microphoneOn} disabled={video.broadcastBusy || video.broadcastState !== "active" || video.status !== "live"} onClick={() => void video.toggleMicrophone()}>
+                    {video.microphoneOn ? "🎙 Mute microphone" : "🎙 Enable microphone"}
+                  </button>
+                  <button className={`btn ${video.screenOn ? "" : "secondary"}`} type="button" aria-pressed={video.screenOn} disabled={video.broadcastBusy || video.broadcastState !== "active" || video.status !== "live"} onClick={() => void video.toggleScreen()}>
                     {video.screenOn ? "■ Stop screen share" : "🖥 Share screen"}
                   </button>
+                  {video.cameraOn && !video.screenOn && (
+                    <button className="btn secondary" type="button" aria-pressed={mirrored} aria-label={`${mirrored ? "Disable" : "Enable"} camera mirror`} onClick={toggleMirror}>
+                      ⇋ {mirrored ? "Unmirror camera" : "Mirror camera"}
+                    </button>
+                  )}
                 </div>
               )}
               {video.serverReady === false && !previewVideoControls && (
                 <p className="small">Camera and screen sharing are off until live video (LiveKit) is set up on the server.</p>
               )}
+              {video.broadcastNotice && <p className="small" role="status">{video.broadcastNotice}</p>}
               {video.error && <p className="small" role="alert">{video.error}</p>}
               <p className="small">Shortcuts: Space play/pause, ←/→ 15s, N next, P previous.</p>
-              <button className="btn rm-end" type="button" disabled={ending} onClick={() => void endStream()}>
+              <button className="btn rm-end" type="button" disabled={ending || video.broadcastBusy} onClick={() => void endStream()}>
                 {ending ? "Ending..." : "■ End live stream"}
               </button>
               {state?.room_id && (

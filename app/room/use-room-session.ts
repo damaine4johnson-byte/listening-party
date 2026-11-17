@@ -8,6 +8,7 @@ const URL_STAMP_TTL = 40 * 60_000;
 
 export type RoomSessionPoll = {
   roomTitle: string;
+  roomStatus: "scheduled" | "live";
   coverUrl: string | null;
   roomDescription: string;
   hostProfile: HostProfile | null;
@@ -24,6 +25,7 @@ export type RoomSessionPoll = {
 
 const INITIAL: RoomSessionPoll = {
   roomTitle: "Listening room",
+  roomStatus: "scheduled",
   coverUrl: null,
   roomDescription: "",
   hostProfile: null,
@@ -79,6 +81,7 @@ export function useRoomSession(onEnded: () => void, onNotice: (message: string) 
             return {
               ...current,
               roomTitle: result.room.title,
+              roomStatus: result.room.status === "live" ? "live" : "scheduled",
               coverUrl: result.room.coverUrl ?? null,
               roomDescription: result.room.description ?? "",
               hostProfile: result.hostProfile,
